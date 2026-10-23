@@ -79,6 +79,7 @@ export class CouchHost {
   /** Create a new room. */
   create(): Promise<{ code: string }> {
     this.code = undefined; this.tvToken = undefined;
+    this.forgetPlayers(); // players of a previous room are not in the new one
     return this.open();
   }
 
@@ -87,12 +88,14 @@ export class CouchHost {
     const c = (code ?? this.storage.getItem(LAST_ROOM_KEY) ?? '').toUpperCase();
     const tok = c ? this.storage.getItem(TV_TOKEN_KEY(c)) : null;
     if (!c || !tok) return Promise.reject(new Error('room.badToken'));
+    if (c !== this.code) this.forgetPlayers();
     this.code = c; this.tvToken = tok;
     return this.open();
   }
 
   private open() {
     return new Promise<{ code: string }>((resolve, reject) => {
+      this.settle(new Error('host.superseded'));
       this.wait = { resolve, reject };
       this.sig.connect();
       if (this.pingTimer === undefined) {
@@ -108,6 +111,11 @@ export class CouchHost {
   }
 
   close() {
+    this.stop();
+    this.settle(new Error('host.closed'));
+  }
+
+  private stop() {
     this.sig.close();
     if (this.pingTimer !== undefined) this.clock.clearInterval(this.pingTimer);
     this.pingTimer = undefined;
@@ -115,6 +123,12 @@ export class CouchHost {
     this.queue.drain();
     this.chunks.clear();
     for (const p of this.ps.values()) { p.peer?.close(); p.peer = undefined; }
+  }
+
+  private forgetPlayers() {
+    for (const p of this.ps.values()) p.peer?.close();
+    this.ps.clear();
+    this.queue.drain();
   }
 
   players(): Map<string, PlayerView> {
@@ -212,7 +226,7 @@ export class CouchHost {
           // Resume refused (room gone / bad token): forget the token so the app can create anew.
           if (this.code) this.storage.removeItem(TV_TOKEN_KEY(this.code));
           this.code = undefined; this.tvToken = undefined;
-          this.sig.close();
+          this.stop();
           return this.settle(new Error(m.code));
         }
         return this.ev.emit('error', m.code);

@@ -61,4 +61,40 @@ describe('regressions', () => {
     expect(host.players().size).toBe(1);
     host.close(); client.close();
   });
+
+  test('host: create() again starts clean, close() rejects a pending open, failed resume stops timers', async () => {
+    const host = mkHost();
+    const p1 = host.create();
+    await tick(0);
+    const { code } = await p1;
+    const client = mkClient();
+    const j = client.join(code, 'Ana');
+    await tick(0);
+    await j;
+    await tick(100);
+    expect(host.players().size).toBe(1);
+    const oldPcs = FakeRTC.all.length;
+
+    const p2 = host.create();
+    expect(host.players().size).toBe(0); // the old room's players are gone
+    expect(FakeRTC.all.slice(0, oldPcs).some((pc) => pc.closed)).toBe(true);
+    await tick(0);
+    const { code: code2 } = await p2;
+    expect(code2).not.toBe(code);
+    expect(backend.sockets.filter((s) => s.readyState === 1 && backend.conns.get(s)?.role === 'tv')).toHaveLength(1);
+    client.close();
+
+    const pending = host.create();
+    host.close();
+    await expect(pending).rejects.toThrow('host.closed');
+
+    const storage = new MemStorage();
+    storage.setItem('couchpad.tv.ZZZZ', 'nope');
+    const h2 = new CouchHost({ wsUrl: 'wss://x', household: 'h', WebSocket: backend.WebSocket as any, storage });
+    const r = h2.resume('ZZZZ');
+    r.catch(() => {});
+    await tick(0);
+    await expect(r).rejects.toThrow('room.notFound');
+    expect(vi.getTimerCount()).toBe(0); // no ping interval left running
+  });
 });
