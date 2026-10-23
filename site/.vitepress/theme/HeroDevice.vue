@@ -146,10 +146,8 @@ onMounted(() => {
   function onVis() { if (document.hidden) stop(); else start(); }
   latTimer = setInterval(() => { latency.value = 13 + Math.round(Math.random() * 4); }, 700);
 
-  if (reduced) {
-    // draw one static frame
-    running = true; frame(performance.now()); running = false; cancelAnimationFrame(raf);
-  }
+  const still = () => { running = true; frame(performance.now() + 2200); running = false; cancelAnimationFrame(raf); };
+  if (reduced) { still(); ro.disconnect(); ro = new ResizeObserver(() => { measure(); still(); }); ro.observe(st); }
   cleanup = () => {
     stop(); io?.disconnect(); ro?.disconnect(); clearInterval(latTimer);
     document.removeEventListener('visibilitychange', onVis);
