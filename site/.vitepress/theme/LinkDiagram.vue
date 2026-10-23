@@ -240,8 +240,12 @@ onMounted(() => {
   mq.addEventListener('change', pickGeo);
   raf = requestAnimationFrame(tick);
   vis = new IntersectionObserver(([e]) => {
+    const was = onScreen;
     onScreen = !!e?.isIntersecting;
     if (onScreen && !raf) raf = requestAnimationFrame(tick);
+    // offscreen, the scenario's timers would keep adding packets and log lines: stop them, replay on return
+    if (!onScreen && was) reset();
+    if (onScreen && !was) run(active.value);
   });
   if (svg.value) vis.observe(svg.value);
   run(props.scenario ?? 'home');

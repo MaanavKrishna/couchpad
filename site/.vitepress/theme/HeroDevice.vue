@@ -8,6 +8,7 @@ const knob = ref<HTMLDivElement | null>(null);
 const btnA = ref<HTMLDivElement | null>(null);
 const btnB = ref<HTMLDivElement | null>(null);
 const phoneScreen = ref<HTMLDivElement | null>(null);
+const phone = ref<HTMLDivElement | null>(null);
 const tvScreen = ref<HTMLDivElement | null>(null);
 const latency = ref(15);
 const fps = ref(30);
@@ -24,22 +25,37 @@ onMounted(() => {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const st = stage.value!, cv = fx.value!, gc = game.value!;
   const ctx = cv.getContext('2d')!, g = gc.getContext('2d')!;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  let W = 0, H = 0, from = { x: 0, y: 0 }, to = { x: 0, y: 0 }, GW = 0, GH = 0, GRW = 0, GRH = 0, gx0 = 0, gy0 = 0;
+  // Backing stores are capped: DPR at most 1.5 and at most 1200 px wide, so a 2x laptop screen stays cheap.
+  const DPR = Math.min(1.5, window.devicePixelRatio || 1);
+  let dpr = DPR, gdpr = DPR;
+  const grid = document.createElement('canvas');
+  let stickR = 0, W = 0, H = 0, from = { x: 0, y: 0 }, to = { x: 0, y: 0 }, GW = 0, GH = 0, GRW = 0, GRH = 0, gx0 = 0, gy0 = 0;
 
   const measure = () => {
     const r = st.getBoundingClientRect();
     W = r.width; H = r.height;
-    cv.width = W * dpr; cv.height = H * dpr;
+    dpr = Math.min(1, 1200 / Math.max(1, W)); // glow dots are soft, 1x is enough
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const p = phoneScreen.value!.getBoundingClientRect(), t = tvScreen.value!.getBoundingClientRect();
     from = { x: p.left - r.left + p.width * 0.5, y: p.top - r.top + p.height * 0.78 };
     to = { x: t.left - r.left + t.width * 0.22, y: t.top - r.top + t.height * 0.55 };
     const gr = gc.getBoundingClientRect();
     gx0 = gr.left - r.left; gy0 = gr.top - r.top;
+    stickR = (knob.value?.parentElement?.clientWidth ?? 0) * 0.3;
     GW = gc.clientWidth; GH = gc.clientHeight; GRW = gr.width; GRH = gr.height;
-    gc.width = GW * dpr; gc.height = GH * dpr;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gdpr = Math.min(DPR, 1200 / Math.max(1, GW));
+    gc.width = Math.round(GW * gdpr); gc.height = Math.round(GH * gdpr);
+    g.setTransform(gdpr, 0, 0, gdpr, 0, 0);
+    // the grid never changes: draw it once
+    grid.width = gc.width; grid.height = gc.height;
+    const gg = grid.getContext('2d')!;
+    gg.setTransform(gdpr, 0, 0, gdpr, 0, 0);
+    gg.strokeStyle = 'rgba(76,201,240,0.08)'; gg.lineWidth = 1;
+    gg.beginPath();
+    for (let x = 0; x < GW; x += 22) { gg.moveTo(x, 0); gg.lineTo(x, GH); }
+    for (let y = 0; y < GH; y += 22) { gg.moveTo(0, y); gg.lineTo(GW, y); }
+    gg.stroke();
   };
 
   // pre-rendered glow sprites (cheaper than shadowBlur every frame)
@@ -68,11 +84,18 @@ onMounted(() => {
     return { x: Math.sin(s * 1.1) * 0.75 + Math.sin(s * 2.7) * 0.2, y: Math.sin(s * 0.8 + 1.3) * 0.7 };
   };
 
+  let lastDraw = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const frame = (now: number) => {
     if (!running) return;
+    // 30 fps is plenty for this loop and halves its cost
+    lastDraw = now;
+    // the phone's float runs in this loop too, so the page only produces frames at 30 fps
+    const fl = Math.sin((now - t0) / 1114);
+    phone.value!.style.transform = `rotateY(${20 + fl * 2}deg) rotateX(${7 + fl}deg) rotateZ(${-1.5 - fl * 0.5}deg) translateY(${(-5 - fl * 5).toFixed(1)}px)`;
     const t = now - t0;
     const a = axes(t);
-    const R = knob.value!.parentElement!.clientWidth * 0.3;
+    const R = stickR;
     knob.value!.style.transform = `translate(${(a.x * R).toFixed(1)}px, ${(a.y * R).toFixed(1)}px)`;
     const na = t % 1700 < 170, nb = (t + 900) % 2600 < 170;
     if (na !== aDown) { aDown = na; btnA.value!.classList.toggle('down', na); if (na) spawn(now, rose, 0.7); }
@@ -104,11 +127,9 @@ onMounted(() => {
     px += (0.5 + la.x * 0.4 - px) * 0.2;
     py += (0.54 + la.y * 0.36 - py) * 0.2;
     trail.push({ x: px * GW, y: py * GH });
-    if (trail.length > 26) trail.shift();
+    if (trail.length > 14) trail.shift();
     g.clearRect(0, 0, GW, GH);
-    g.strokeStyle = 'rgba(76,201,240,0.08)'; g.lineWidth = 1;
-    for (let gx = 0; gx < GW; gx += 22) { g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx, GH); g.stroke(); }
-    for (let gy = 0; gy < GH; gy += 22) { g.beginPath(); g.moveTo(0, gy); g.lineTo(GW, gy); g.stroke(); }
+    g.drawImage(grid, 0, 0, GW, GH);
     for (let i = 1; i < trail.length; i++) {
       g.strokeStyle = `rgba(76,201,240,${(i / trail.length) * 0.6})`;
       g.lineWidth = 2 + (i / trail.length) * 3;
@@ -128,7 +149,8 @@ onMounted(() => {
     g.fillStyle = '#fff';
     g.beginPath(); g.arc(px * GW, py * GH, 3, 0, Math.PI * 2); g.fill();
 
-    raf = requestAnimationFrame(frame);
+    // wait out the rest of a 30 fps slot without asking for frames, so idle frames cost nothing
+    timer = setTimeout(() => { if (running) raf = requestAnimationFrame(frame); }, Math.max(0, 33 - (performance.now() - now)));
   };
 
   function spawn(now: number, s: HTMLCanvasElement, lift: number) {
@@ -136,21 +158,29 @@ onMounted(() => {
   }
 
   const start = () => { if (running || reduced) return; running = true; raf = requestAnimationFrame(frame); };
-  const stop = () => { running = false; cancelAnimationFrame(raf); };
+  const stop = () => { running = false; cancelAnimationFrame(raf); clearTimeout(timer); };
 
   measure();
   ro = new ResizeObserver(measure); ro.observe(st);
-  io = new IntersectionObserver(([e]) => (e!.isIntersecting && !document.hidden ? start() : stop()));
+  let inView = false, focused = true;
+  const sync = () => (inView && focused && !document.hidden ? start() : stop());
+  io = new IntersectionObserver(([e]) => { inView = !!e?.isIntersecting; sync(); });
   io.observe(st);
+  const onVis = () => sync();
+  const onFocus = () => { focused = true; sync(); };
+  const onBlur = () => { focused = false; sync(); };
   document.addEventListener('visibilitychange', onVis);
-  function onVis() { if (document.hidden) stop(); else start(); }
-  latTimer = setInterval(() => { latency.value = 13 + Math.round(Math.random() * 4); }, 700);
+  window.addEventListener('focus', onFocus);
+  window.addEventListener('blur', onBlur);
+  latTimer = setInterval(() => { if (running) latency.value = 13 + Math.round(Math.random() * 4); }, 700);
 
   const still = () => { running = true; frame(performance.now() + 2200); running = false; cancelAnimationFrame(raf); };
   if (reduced) { still(); ro.disconnect(); ro = new ResizeObserver(() => { measure(); still(); }); ro.observe(st); }
   cleanup = () => {
     stop(); io?.disconnect(); ro?.disconnect(); clearInterval(latTimer);
     document.removeEventListener('visibilitychange', onVis);
+    window.removeEventListener('focus', onFocus);
+    window.removeEventListener('blur', onBlur);
   };
 });
 </script>
@@ -158,7 +188,7 @@ onMounted(() => {
 <template>
   <div ref="stage" class="hd-stage" role="img"
     aria-label="A phone showing a joystick and two buttons streams glowing input packets to a TV, which moves a dot in real time.">
-    <div class="hd-phone">
+    <div ref="phone" class="hd-phone">
       <div ref="phoneScreen" class="hd-phone-screen">
         <div class="hd-notch" />
         <div class="hd-phone-top">
@@ -193,8 +223,7 @@ onMounted(() => {
   position: absolute; left: 2%; top: 9%; width: 29%; aspect-ratio: 9 / 18.5; z-index: 2;
   border-radius: 13% / 6.5%; padding: 3.2%; background: linear-gradient(145deg, #2a2f5c, #12152b);
   box-shadow: 0 40px 80px -20px rgba(0,0,0,.7), inset 0 0 0 1.5px rgba(255,255,255,.08), 0 0 0 1px #0a0c1a;
-  transform: rotateY(22deg) rotateX(6deg) rotateZ(-2deg); transform-style: preserve-3d;
-  animation: hd-float 7s ease-in-out infinite;
+  transform: rotateY(20deg) rotateX(7deg) rotateZ(-1.5deg); will-change: transform;
 }
 .hd-phone-screen {
   position: relative; height: 100%; border-radius: 10% / 5%; overflow: hidden;
@@ -232,9 +261,4 @@ onMounted(() => {
 .hd-pill { color: var(--cp-cyan); border: 1px solid rgba(76,201,240,.5); border-radius: 5px; padding: 1px 6px; }
 .hd-lat b { color: var(--cp-text); font-weight: 600; display: inline-block; min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
 .hd-tv-stand { width: 26%; height: 14px; margin: 0 auto; border-radius: 0 0 8px 8px; background: linear-gradient(#1b1f40, #0e1124); }
-@keyframes hd-float {
-  0%, 100% { transform: rotateY(22deg) rotateX(6deg) rotateZ(-2deg) translateY(0); }
-  50% { transform: rotateY(18deg) rotateX(8deg) rotateZ(-1deg) translateY(-10px); }
-}
-@media (prefers-reduced-motion: reduce) { .hd-phone { animation: none; } }
 </style>
