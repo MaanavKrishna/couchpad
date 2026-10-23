@@ -26,7 +26,7 @@ npm install ws
 PORT=8787 node server.mjs
 ```
 
-<div class="out">couchpad example on http://localhost:8787  (phone: /phone.html)</div>
+<pre class="out">couchpad example on http://localhost:8787  (phone: /phone.html)</pre>
 
 Point both sides at it with `wss://` once it is behind TLS:
 

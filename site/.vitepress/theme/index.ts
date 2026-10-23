@@ -6,6 +6,8 @@ import HomeSpecs from './HomeSpecs.vue';
 import HomeCadabra from './HomeCadabra.vue';
 import HomePlayground from './HomePlayground.vue';
 import HomeSession from './HomeSession.vue';
+import ConceptFig from './ConceptFig.vue';
+import WidgetGallery from './WidgetGallery.vue';
 import './custom.css';
 
 export default {
@@ -28,5 +30,7 @@ export default {
     app.component('HomeCadabra', HomeCadabra);
     app.component('HomePlayground', HomePlayground);
     app.component('HomeSession', HomeSession);
+    app.component('ConceptFig', ConceptFig);
+    app.component('WidgetGallery', WidgetGallery);
   },
 } satisfies Theme;

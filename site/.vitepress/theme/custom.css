@@ -285,6 +285,7 @@ body { background: var(--cp-ink); }
 /* tutorial steps */
 .vp-doc h2.step, .vp-doc .steps h2 { display: flex; }
 .vp-doc kbd { font: 500 .8em var(--vp-font-family-mono); padding: 2px 6px; border-radius: 5px; border: 1px solid var(--cp-line); border-bottom-width: 2px; background: var(--cp-raise); color: var(--cp-text); }
+.vp-doc pre.out { overflow-x: auto; }
 .vp-doc .out { margin: 10px 0 18px; padding: 10px 14px; border-left: 3px solid var(--cp-cyan); border-radius: 0 8px 8px 0; background: rgba(76,201,240,.06); font: .82rem/1.6 var(--vp-font-family-mono); color: var(--cp-muted); white-space: pre-wrap; }
 .vp-doc .out::before { content: 'Expected output'; display: block; font: 600 .72rem var(--vp-font-family-base); color: var(--cp-cyan); margin-bottom: 4px; }
 .vp-doc .custom-block { border-radius: 10px; }
@@ -292,8 +293,8 @@ body { background: var(--cp-ink); }
 .vp-doc .custom-block.warning { border-color: rgba(255,209,102,.35); background: rgba(255,209,102,.07); }
 .vp-doc .custom-block.danger { border-color: rgba(255,77,109,.4); background: rgba(255,77,109,.07); }
 .vp-doc .custom-block.info { border-color: var(--cp-line); background: var(--cp-panel); }
-.vp-doc table { display: table; width: 100%; }
-@media (max-width: 720px) { .vp-doc table { display: block; overflow-x: auto; } }
+.vp-doc table code { white-space: nowrap; }
+.vp-doc td { vertical-align: top; }
 .vp-doc .header-anchor { position: relative; }
 .vp-doc .header-anchor[data-copied]::after { content: 'Link copied'; position: absolute; left: 0; bottom: 100%; transform: translateY(-4px); white-space: nowrap; z-index: 2;
   font: 500 .72rem var(--vp-font-family-base); color: var(--cp-ink); background: var(--cp-cyan); padding: 2px 8px; border-radius: 6px; }

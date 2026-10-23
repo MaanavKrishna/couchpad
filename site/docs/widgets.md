@@ -2,6 +2,12 @@
 
 couchpad's widgets are framework-free DOM controls built for thumbs: pointer capture, haptics, a portrait one-thumb layout and CSS-variable theming. The host describes them as data, and the phone draws them.
 
+## Gallery
+
+Each card shows the widget with couchpad's default theme, the `ControlWidget` that produces it, and what it adds to an `InputFrame`.
+
+<WidgetGallery />
+
 ## mountController
 
 ```ts

@@ -28,8 +28,8 @@ cd couchpad && npm install
 npm run example
 ```
 
-<div class="out">built examples/dist
-couchpad example on http://localhost:8787  (phone: /phone.html)</div>
+<pre class="out">built examples/dist
+couchpad example on http://localhost:8787  (phone: /phone.html)</pre>
 
 Leave it running. The rest of this tutorial uses `ws://<your-computer-ip>:8787/ws` as the WebSocket URL. To run your own server later, see [Deploy the signaling server](./guides/deploy-server).
 
@@ -68,7 +68,7 @@ host.on('player', (id: string, info: { name: string }) => {
 
 Serve both pages with any dev server, for example `npx vite --host`, and open the TV page on your computer.
 
-<div class="out">Room KMPV</div>
+<pre class="out">Room KMPV</pre>
 
 ## 4. Join from the phone
 
@@ -108,12 +108,12 @@ console.log('joined as', playerId);
 
 On the phone, open `http://<your-computer-ip>:<port>/phone.html?room=KMPV`.
 
-<div class="out">joined as p1
-transport: direct</div>
+<pre class="out">joined as p1
+transport: direct</pre>
 
 The TV logs the new player:
 
-<div class="out">joined p1 Asha</div>
+<pre class="out">joined p1 Asha</pre>
 
 ::: tip Direct or relay?
 `transport: direct` means the DataChannel opened. On networks with client isolation you will see nothing for 4 s and then stay on `relay`. Both work; see [relay fallback](./concepts#relay-fallback).
@@ -129,9 +129,9 @@ host.on('input', (id: string, frame) => {
 });
 ```
 
-<div class="out">p1 { x: 0.42, y: -0.87 } { jump: false }
+<pre class="out">p1 { x: 0.42, y: -0.87 } { jump: false }
 p1 { x: 0.44, y: -0.85 } { jump: false }
-p1 { x: 0, y: 0 } { jump: true }</div>
+p1 { x: 0, y: 0 } { jump: true }</pre>
 
 Continuous frames arrive at up to 30 per second, a button press arrives immediately, and while you hold a control the phone resends it every 100 ms. When you let go or switch tabs, a zeroed frame arrives so nothing stays pressed.
 

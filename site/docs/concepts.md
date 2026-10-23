@@ -1,6 +1,10 @@
 # Concepts
 
+Eight ideas explain how couchpad keeps a phone connected to a TV. Each section is a short explainer with the constants that drive it.
+
 ## Signaling
+
+<ConceptFig kind="signaling" caption="The server introduces the phone and the TV, then gets out of the way." />
 
 Every phone and the host keep one WebSocket open to your signaling server. It does three jobs:
 
@@ -11,6 +15,8 @@ Every phone and the host keep one WebSocket open to your signaling server. It do
 The socket reconnects on its own with jittered exponential backoff: **250, 500, 1000, 2000, 4000, 8000 ms**, each ±30% (`BACKOFF_MS`, `BACKOFF_JITTER`). The backoff only resets once a socket has stayed open for **3 s** (`STABLE_OPEN_MS`), so a link that flaps keeps backing off instead of hammering the server. On every reopen the client re-sends `room.join` (with its rejoin token) and the host re-sends `room.resume`.
 
 ## DataChannels: unordered input, reliable state
+
+<ConceptFig kind="channels" caption="Two channels per phone: lossy for continuous input, reliable for everything else." />
 
 The phone is the WebRTC offerer and opens two channels:
 
@@ -27,6 +33,8 @@ A `Peer` starts in `relay` mode and becomes `direct` only when **both** channels
 
 ## Relay fallback
 
+<ConceptFig kind="fallback" caption="When the direct path fails, the same messages travel through the server." />
+
 couchpad falls back to the relay, for good for that peer, when any of these happens:
 
 - the channels are not open within **4 s** (`OPEN_TIMEOUT_MS`),
@@ -38,15 +46,19 @@ Callers never block on any of this. While the link is opening, sends go through 
 
 ## Chunking at 28 KB
 
+<ConceptFig kind="chunking" caption="Large relay payloads are split to fit 32 KB WebSocket frames." />
+
 API Gateway WebSocket frames cap near 32 KB, and drawings or large `screen` payloads can exceed that. `relayPayloads()` returns the message as is when its UTF-8 JSON is at most **28 KB** (`RELAY_CHUNK_BYTES`), and otherwise splits it into envelopes:
 
 ```ts
 { t: '~chunk', id: 7, seq: 0, total: 3, part: '{"t":"input","frame":{"t":91…' }
 ```
 
-Each serialized envelope stays under 28 KB with 128 bytes of headroom for the relay wrapper. The receiver's `Reassembler` joins parts per sender and chunk id, ignores duplicates and malformed envelopes, caps `total` at 64, and throws away partial sets after **10 s** (`REASSEMBLY_TIMEOUT_MS`). Your server forwards `relay.data` untouched.
+Each serialized envelope stays under 28 KB with 128 bytes of headroom for the relay wrapper. The receiver's `Reassembler` joins parts per sender and chunk id, ignores duplicates and malformed envelopes, caps `total` at 64 (`MAX_CHUNKS`), keeps at most 4 partial messages per sender (`MAX_OPEN_PER_SENDER`), and throws away partial sets after **10 s** (`REASSEMBLY_TIMEOUT_MS`). When a sender reconnects its partials are dropped, because its chunk ids restart. A message that would need more than 64 chunks is refused at send time: `send()` and `sendTo()` return `false`. Your server forwards `relay.data` untouched.
 
 ## Keepalive
+
+<ConceptFig kind="keepalive" caption="Held input is resent so a lost packet can never leave a button stuck." />
 
 Two separate things keep a session healthy:
 
@@ -55,15 +67,25 @@ Two separate things keep a session healthy:
 
 ## Reliable queue
 
+<ConceptFig kind="queue" caption="Reliable messages wait while no path is up, then flush in order." />
+
 `send()` and `sendTo()` try the `state` channel, then the relay. If neither path is up (the WebSocket is reconnecting), the message goes into a `BoundedQueue` of at most **64** messages (`RELIABLE_QUEUE_MAX`). The queue flushes in order when the socket rejoins or the direct link opens. Once a queue is non-empty, new messages line up behind it so order is kept. When the queue is full, `send()` returns `false`.
 
+::: tip Check the return value
+`send()` and `sendTo()` never throw. A `false` means the message was not accepted: the queue is full, the player has left, or the message is too large for the relay.
+:::
+
 ## Rejoin tokens
+
+<ConceptFig kind="rejoin" caption="A refreshed phone gets its seat back." />
 
 `room.joined` carries a `token`. The client stores it keyed by room code in `sessionStorage` (or the `storage` you pass). After a refresh or socket drop, `room.join` includes `rejoinToken`, and the server gives back the same `playerId`. The host sees `player.joined` for an id it already knows, closes the old peer and waits for a fresh offer, so the player keeps their seat, score and colour.
 
 If the server rejects the token (any error other than `room.full`), the client forgets it.
 
 ## TV resume
+
+<ConceptFig kind="resume" caption="A restarted TV gets its room back." />
 
 The host stores its `tvToken` under `couchpad.tv.<CODE>` and the last code under `couchpad.tv.last`. When the TV app restarts:
 
