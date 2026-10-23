@@ -10,7 +10,7 @@ npm run typecheck  # tsc --noEmit
 
 ## What the suite covers
 
-There are 39 tests in three files.
+There are 39 tests in four files.
 
 **`test/host.test.ts`**: the transport, end to end with fakes.
 
