@@ -8,8 +8,6 @@ import { CouchHost, CouchClient, mountController /* , ... */ } from 'couchpad';
 
 Widgets have their own page: [Widgets](./widgets). Wire messages are listed in [Protocol messages](./protocol).
 
-[[toc]]
-
 ## CouchHost
 
 The TV side. Owns the room, answers each phone's WebRTC offer and relays when direct is down.
