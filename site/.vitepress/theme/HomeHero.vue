@@ -6,6 +6,7 @@ import HeroDevice from './HeroDevice.vue';
 const words = ['Turn', 'any', 'phone', 'into', 'a', 'game', 'controller.', 'No', 'app.'];
 const bar = ref<HTMLDivElement | null>(null);
 let onScroll: (() => void) | undefined;
+let rio: IntersectionObserver | undefined;
 onMounted(() => {
   let queued = false;
   onScroll = () => {
@@ -19,9 +20,18 @@ onMounted(() => {
     });
   };
   window.addEventListener('scroll', onScroll, { passive: true });
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('cp-reveal-ready');
+    rio = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); rio!.unobserve(e.target); } }), { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.cp-reveal').forEach((el) => rio!.observe(el));
+  }
   onScroll();
 });
-onBeforeUnmount(() => { if (onScroll) window.removeEventListener('scroll', onScroll); });
+onBeforeUnmount(() => {
+  if (onScroll) window.removeEventListener('scroll', onScroll);
+  rio?.disconnect();
+  document.documentElement.classList.remove('cp-reveal-ready');
+});
 </script>
 
 <template>

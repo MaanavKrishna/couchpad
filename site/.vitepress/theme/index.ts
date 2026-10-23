@@ -4,6 +4,7 @@ import LinkDiagram from './LinkDiagram.vue';
 import HomeHero from './HomeHero.vue';
 import HomeSpecs from './HomeSpecs.vue';
 import HomeCadabra from './HomeCadabra.vue';
+import HomePlayground from './HomePlayground.vue';
 import './custom.css';
 
 export default {
@@ -13,5 +14,6 @@ export default {
     app.component('HomeHero', HomeHero);
     app.component('HomeSpecs', HomeSpecs);
     app.component('HomeCadabra', HomeCadabra);
+    app.component('HomePlayground', HomePlayground);
   },
 } satisfies Theme;

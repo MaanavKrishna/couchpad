@@ -9,19 +9,31 @@ titleTemplate: Phones as game controllers, no app
 
 <section class="cp-session" aria-labelledby="cp-session-h">
 <div class="cp-wrap">
-<h2 id="cp-session-h" class="cp-h2">Watch a session survive the network</h2>
-<p class="cp-sub-lede">Pick a network and watch what couchpad sends. Every message in the log is a real couchpad message.</p>
+<h2 id="cp-session-h" class="cp-h2 cp-reveal">Watch a session survive the network</h2>
+<p class="cp-sub-lede cp-reveal">Pick a network and watch what couchpad sends. Every message in the log is a real couchpad message.</p>
+<div class="cp-reveal">
 <LinkDiagram />
+</div>
 </div>
 </section>
 
 <HomeSpecs />
 
+<section class="cp-play" aria-labelledby="cp-play-h">
+<div class="cp-wrap">
+<h2 id="cp-play-h" class="cp-h2 cp-reveal">Try the input path</h2>
+<p class="cp-sub-lede cp-reveal">This joystick runs the same rules as <code>CouchClient.sendInput()</code>: moves are coalesced to 30 Hz, a button edge goes out at once, and a held control is resent every 100 ms.</p>
+<div class="cp-reveal">
+<HomePlayground />
+</div>
+</div>
+</section>
+
 <section class="cp-quick" aria-labelledby="cp-quick-h">
 <div class="cp-wrap">
-<h2 id="cp-quick-h" class="cp-h2">Quick start</h2>
-<p class="cp-sub-lede">The TV creates a room and tells each phone which controls to show. The phone renders them and streams input back.</p>
-<div class="vp-doc">
+<h2 id="cp-quick-h" class="cp-h2 cp-reveal">Quick start</h2>
+<p class="cp-sub-lede cp-reveal">The TV creates a room and tells each phone which controls to show. The phone renders them and streams input back.</p>
+<div class="vp-doc cp-reveal">
 
 ::: code-group
 

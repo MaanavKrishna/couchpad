@@ -5,7 +5,7 @@ import { withBase } from 'vitepress';
 <template>
   <section class="cp-cadabra" aria-labelledby="cp-cadabra-h">
     <div class="cp-wrap cp-cadabra-grid">
-      <div>
+      <div class="cp-reveal">
         <h2 id="cp-cadabra-h" class="cp-h2">Used by Cadabra</h2>
         <p>
           <a href="https://github.com/MaanavKrishna/cadabra">Cadabra</a> is a Fire TV party game where the room
@@ -18,7 +18,7 @@ import { withBase } from 'vitepress';
         </p>
         <a class="cp-cta ghost" href="https://github.com/MaanavKrishna/cadabra">See Cadabra on GitHub</a>
       </div>
-      <figure class="cp-shot">
+      <figure class="cp-shot cp-reveal">
         <img :src="withBase('/phone-join-play.jpg')" width="1590" height="844" decoding="async"
           alt="A phone that has joined a Cadabra room, showing couchpad's joystick and buttons, next to the TV game it controls." />
         <figcaption>A phone joined to Cadabra, playing as the controller.</figcaption>
