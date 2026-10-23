@@ -76,6 +76,13 @@ export const MAX_CHUNKS = 64;
 /** Partial messages kept per sender; the oldest is dropped beyond this. */
 export const MAX_OPEN_PER_SENDER = 4;
 
+/** True when `msg` needs more than MAX_CHUNKS relay chunks: receivers would drop it, so it is undeliverable. */
+export function tooLargeForRelay(msg: unknown): boolean {
+  const s = JSON.stringify(msg);
+  if (s === undefined || s.length <= RELAY_CHUNK_BYTES / 4) return false; // single frame even if all 4-byte UTF-8
+  return relayPayloads(msg).length > MAX_CHUNKS;
+}
+
 const isChunk = (d: unknown): d is RelayChunk => {
   const c = d as RelayChunk;
   return !!c && typeof c === 'object' && c.t === '~chunk' && Number.isInteger(c.id) && Number.isInteger(c.seq)

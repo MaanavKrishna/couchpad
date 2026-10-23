@@ -6,7 +6,7 @@ import {
   Signaling, defaultClock, defaultStorage, type Clock, type StorageLike, type WebSocketCtor,
 } from './signaling';
 import {
-  BoundedQueue, Emitter, Reassembler, parsePeerMsg, relayPayloads, type Listener,
+  BoundedQueue, Emitter, Reassembler, parsePeerMsg, relayPayloads, tooLargeForRelay, type Listener,
 } from './util';
 
 export interface CouchHostOpts {
@@ -145,11 +145,12 @@ export class CouchHost {
 
   /**
    * Reliable send to one player: state channel when direct, else relay (chunked when large);
-   * queued (max 64) while the WS is down. false = not deliverable (unknown/left player, queue full).
+   * queued (max 64) while the WS is down. false = not deliverable (unknown/left player, queue full,
+   * or too large for 64 relay chunks).
    */
   sendTo(playerId: string, msg: PeerMsg): boolean {
     const p = this.ps.get(playerId);
-    if (!p || !p.connected) return false;
+    if (!p || !p.connected || tooLargeForRelay(msg)) return false;
     if (this.queue.size === 0 && this.trySend(playerId, p, msg)) return true;
     return this.queue.push({ to: playerId, msg });
   }

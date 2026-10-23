@@ -124,4 +124,31 @@ describe('regressions', () => {
     expect(r.accept('b', c(1, 1, '2}'))).toBeUndefined();
     expect(r.accept('b', c(1, 0, '{"new":'))).toEqual({ new: 2 });
   });
+
+  test('reliable sends too large for 64 relay chunks return false instead of being silently dropped', async () => {
+    const host = mkHost();
+    const p = host.create();
+    await tick(0);
+    const { code } = await p;
+    const client = new CouchClient({
+      wsUrl: 'wss://x', WebSocket: backend.WebSocket as any, random: () => 0.5,
+      transport: 'relay-only', storage: new MemStorage(),
+    });
+    const j = client.join(code, 'Ana');
+    await tick(0);
+    const { playerId } = await j;
+    const got: unknown[] = [];
+    client.onMessage((m) => got.push(m));
+    const huge = { t: 'screen' as const, name: 'big', data: 'x'.repeat(2 * 1024 * 1024) };
+    expect(host.sendTo(playerId, huge)).toBe(false);
+    expect(client.send(huge)).toBe(false);
+    expect(backend.log.some((m) => m.t === 'relay' && (m.data as any)?.t === '~chunk')).toBe(false);
+    // a large-but-legal message still goes through, and nothing is stuck in the queue ahead of it
+    const big = { t: 'screen' as const, name: 'ok', data: 'y'.repeat(200 * 1024) };
+    expect(host.sendTo(playerId, big)).toBe(true);
+    expect(host.sendTo(playerId, { t: 'screen', name: 'after' })).toBe(true);
+    await tick(10);
+    expect(got.map((m: any) => m.name)).toEqual(['ok', 'after']);
+    host.close(); client.close();
+  });
 });

@@ -5,12 +5,12 @@ import {
   Signaling, defaultClock, defaultStorage, type Clock, type StorageLike, type WebSocketCtor,
 } from './signaling';
 import {
-  BoundedQueue, Emitter, MAX_DRAW_BYTES, Reassembler, parsePeerMsg, relayPayloads, type Listener,
+  BoundedQueue, Emitter, MAX_DRAW_BYTES, Reassembler, parsePeerMsg, relayPayloads, tooLargeForRelay, type Listener,
 } from './util';
 
 export interface Transport {
   sendInput(frame: InputFrame): void;
-  /** Reliable send. false = dropped (queue full). */
+  /** Reliable send. false = dropped (queue full, or too large for 64 relay chunks). */
   send(msg: PeerMsg): boolean;
   onMessage(cb: (m: PeerMsg) => void): void;
   readonly mode: Mode;
@@ -258,6 +258,7 @@ export class CouchClient implements Transport {
 
   /** Reliable send: state channel when direct, else relay; queued (max 64) while both are down. */
   send(msg: PeerMsg): boolean {
+    if (tooLargeForRelay(msg)) return false; // the TV would drop it; never let it block the queue
     if (this.queue.size === 0 && this.trySendReliable(msg)) return true;
     return this.queue.push(msg);
   }
