@@ -57,6 +57,7 @@ function go(id: Id) {
 .ss-step.on { opacity: 1; border-color: var(--cp-cyan); }
 .ss-step:first-child { min-height: 40vh; }
 .ss-title { all: unset; cursor: pointer; display: flex; gap: 12px; align-items: baseline; font: 800 1.45rem/1.2 var(--cp-display); color: var(--cp-text); letter-spacing: -.01em; }
+.ss-title { min-height: 44px; }
 .ss-title:focus-visible { outline: 2px solid var(--cp-amber); outline-offset: 4px; border-radius: 4px; }
 .ss-num { font: 600 .85rem var(--vp-font-family-mono); color: var(--cp-cyan); }
 .ss-step p { color: var(--cp-muted); line-height: 1.65; margin: 12px 0 14px; max-width: 46ch; }

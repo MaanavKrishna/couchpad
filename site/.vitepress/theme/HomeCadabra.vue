@@ -19,7 +19,7 @@ import { withBase } from 'vitepress';
         <a class="cp-cta ghost" href="https://github.com/MaanavKrishna/cadabra">See Cadabra on GitHub</a>
       </div>
       <figure class="cp-shot cp-reveal">
-        <img :src="withBase('/phone-join-play.jpg')" width="1590" height="844" decoding="async"
+        <img :src="withBase('/phone-join-play.jpg')" width="1200" height="637" loading="lazy" decoding="async"
           alt="A phone that has joined a Cadabra room, showing couchpad's joystick and buttons, next to the TV game it controls." />
         <figcaption>A phone joined to Cadabra, playing as the controller.</figcaption>
       </figure>

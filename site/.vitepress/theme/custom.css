@@ -300,3 +300,16 @@ body { background: var(--cp-ink); }
 .vp-doc .header-anchor { position: relative; }
 .vp-doc .header-anchor[data-copied]::after { content: 'Link copied'; position: absolute; left: 0; bottom: 100%; transform: translateY(-4px); white-space: nowrap; z-index: 2;
   font: 500 .72rem var(--vp-font-family-base); color: var(--cp-ink); background: var(--cp-cyan); padding: 2px 8px; border-radius: 6px; }
+/* mobile tap targets */
+@media (max-width: 640px) {
+  .cp-diagram-bar > button { min-height: 44px; padding: 10px 14px; }
+  .cp-cta { min-height: 44px; display: inline-flex; align-items: center; }
+  .cp-hero { padding: 32px 0 28px; }
+  .cp-lede { font-size: 1.05rem; margin: 18px 0 22px; }
+}
+@media (max-width: 640px) {
+  .cp-hero-grid { gap: 8px; }
+  .cp-hero-art { order: -1; margin: -8px -6px 0; }
+  .cp-kicker { display: none; }
+  .cp-title { font-size: clamp(2.3rem, 11vw, 3rem); }
+}
