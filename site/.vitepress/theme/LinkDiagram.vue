@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 
 type Kind = 'input' | 'state' | 'signal' | 'relay' | 'ping' | 'chunk';
 type Seg = { id: 'direct' | 'up' | 'down'; rev?: boolean };
@@ -11,6 +11,8 @@ const scenarios = [
   { id: 'restart', label: 'TV restart', note: 'The TV token resumes the room; phones re-offer.' },
 ] as const;
 type ScenarioId = (typeof scenarios)[number]['id'];
+const props = defineProps<{ scenario?: ScenarioId }>();
+const emit = defineEmits<{ (e: 'pick', id: ScenarioId): void }>();
 
 const active = ref<ScenarioId>('home');
 const mode = ref<'connecting' | 'direct' | 'relay'>('connecting');
@@ -234,7 +236,8 @@ onMounted(() => {
   pickGeo();
   mq.addEventListener('change', pickGeo);
   raf = requestAnimationFrame(tick);
-  run('home');
+  run(props.scenario ?? 'home');
+  watch(() => props.scenario, (id) => { if (id && id !== active.value) run(id); });
 });
 onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); mq?.removeEventListener('change', pickGeo); });
 </script>
@@ -244,7 +247,7 @@ onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); mq?.removeEventListe
     <div class="cp-diagram-bar" role="group" aria-label="Network scenario">
       <button
         v-for="s in scenarios" :key="s.id" type="button"
-        :aria-pressed="active === s.id" @click="run(s.id)"
+        :aria-pressed="active === s.id" @click="run(s.id); emit('pick', s.id)"
       >{{ s.label }}</button>
     </div>
     <svg ref="svg" class="cp-svg" :viewBox="geo.vb" role="img"
@@ -253,6 +256,10 @@ onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); mq?.removeEventListe
         <pattern id="cp-dots" width="16" height="16" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="var(--cp-line)" />
         </pattern>
+        <filter id="cp-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
       <rect width="100%" height="100%" fill="url(#cp-dots)" opacity=".7" />
 
@@ -292,7 +299,7 @@ onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); mq?.removeEventListe
         <text x="88" y="152" text-anchor="middle" class="cp-name">TV host</text>
       </g>
 
-      <g ref="layer" />
+      <g ref="layer" filter="url(#cp-glow)" />
     </svg>
     <ul class="cp-legend" aria-label="Legend">
       <li><i class="dot" />input, unordered</li>

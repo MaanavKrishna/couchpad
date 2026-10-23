@@ -5,6 +5,7 @@ import HomeHero from './HomeHero.vue';
 import HomeSpecs from './HomeSpecs.vue';
 import HomeCadabra from './HomeCadabra.vue';
 import HomePlayground from './HomePlayground.vue';
+import HomeSession from './HomeSession.vue';
 import './custom.css';
 
 export default {
@@ -15,5 +16,6 @@ export default {
     app.component('HomeSpecs', HomeSpecs);
     app.component('HomeCadabra', HomeCadabra);
     app.component('HomePlayground', HomePlayground);
+    app.component('HomeSession', HomeSession);
   },
 } satisfies Theme;

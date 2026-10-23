@@ -250,3 +250,10 @@ body { background: var(--cp-ink); }
 @media (prefers-reduced-motion: reduce) {
   .cp-reveal-ready .cp-reveal, .cp-reveal-ready .cp-spec { opacity: 1 !important; transform: none !important; }
 }
+/* log typing */
+.cp-log li:last-child code { animation: cp-type .55s steps(28, end) both; }
+.cp-log li:last-child code::after { content: ''; display: inline-block; width: .55em; height: 1em; margin-left: 2px; vertical-align: -2px; background: currentColor; animation: cp-caret .9s steps(1) infinite; }
+@keyframes cp-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes cp-caret { 50% { opacity: 0; } }
+.cp-log li { animation: cp-logline .3s ease-out both; }
+@keyframes cp-logline { from { opacity: 0; transform: translateY(6px); } }

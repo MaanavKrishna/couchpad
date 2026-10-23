@@ -10,10 +10,8 @@ titleTemplate: Phones as game controllers, no app
 <section class="cp-session" aria-labelledby="cp-session-h">
 <div class="cp-wrap">
 <h2 id="cp-session-h" class="cp-h2 cp-reveal">Watch a session survive the network</h2>
-<p class="cp-sub-lede cp-reveal">Pick a network and watch what couchpad sends. Every message in the log is a real couchpad message.</p>
-<div class="cp-reveal">
-<LinkDiagram />
-</div>
+<p class="cp-sub-lede cp-reveal">Scroll through four networks and watch what couchpad sends. Every line in the log is a real couchpad message.</p>
+<HomeSession />
 </div>
 </section>
 
