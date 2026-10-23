@@ -1,14 +1,84 @@
 # couchpad
 
-**Phones as game controllers for TV and web games.** Players scan a QR code, their phone becomes a gamepad (joystick, buttons, tilt, swipe, draw pad, vote, text), and the inputs stream to your game over a direct WebRTC DataChannel, with an automatic WebSocket relay fallback when the direct path is not available.
+[![CI](https://github.com/MaanavKrishna/couchpad/actions/workflows/ci.yml/badge.svg)](https://github.com/MaanavKrishna/couchpad/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-couchpad was extracted from [Cadabra](https://github.com/MaanavKrishna/cadabra), a Fire TV party game, where it carries every tap and stick wiggle from up to four phones to a Fire TV Stick HD (measured 13 to 16 ms on a home network).
+**Turn every phone in the room into a game controller, with no app install.** Players scan a QR code and their phone becomes a gamepad: joystick, buttons, tilt, swipe, draw pad, vote, or text. Inputs stream to your TV or web game over a direct WebRTC DataChannel. When the direct path is blocked (strict Wi-Fi, client isolation), couchpad falls back to a WebSocket relay without the game noticing. Lost connections reconnect themselves, and a refreshed phone or a restarted TV gets its seat and room back. couchpad is a small TypeScript library with one runtime dependency, and it was extracted from the Fire TV party game [Cadabra](https://github.com/MaanavKrishna/cadabra).
 
-- **Direct first, relay always works.** The phone offers a WebRTC connection through your signaling server. If the DataChannel opens within 4 s, inputs go peer-to-peer on the local network. If not (strict Wi-Fi, client isolation), everything silently falls back to relaying through the WebSocket, including large payloads (chunked to fit 32 KB frames).
-- **Two channels.** Continuous input (stick, tilt, held buttons) goes on an unordered, no-retransmit channel; one-shots (swipe, vote, text, drawings) and state go on a reliable one.
-- **Built for flaky phones.** Reconnect with jittered backoff, rejoin tokens so a refreshed phone gets its seat back, host resume after a TV app restart, a bounded reliable queue while links are down, keepalive resends while a control is held, doubled button releases, and a zeroing frame on blur/hide so nothing sticks "pressed".
-- **Framework-free widgets.** `mountController()` turns a declarative widget list into touch controls with pointer-capture, haptics, and CSS-variable theming.
-- **Tiny.** One runtime dependency (`zod`). All environment access (WebSocket, RTCPeerConnection, clock, storage) is injectable, so it is fully unit-tested without a browser.
+## How it works
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as Phone (CouchClient)
+    participant S as Signaling server (WebSocket)
+    participant H as TV / host (CouchHost)
+    H->>S: room.create (or room.resume with tvToken after a restart)
+    S-->>H: room.created {code, tvToken}
+    P->>S: room.join {code, name, rejoinToken?}
+    S-->>P: room.joined {playerId, token}
+    S-->>H: player.joined
+    P->>S: signal (WebRTC offer + ICE)
+    S->>H: signal {from: playerId}
+    H->>S: signal (answer + ICE)
+    S->>P: signal {from: 'tv'}
+    alt DataChannel opens within 4 s
+        P-)H: input frames: unordered, no-retransmit channel (stick, tilt, held buttons)
+        P->>H: reliable channel (swipe, vote, text, drawings, screens)
+    else direct path blocked
+        P->>S: relay {data}, payloads over 28 KB split into ~chunk envelopes
+        S->>H: relay {from, data}, reassembled per sender
+    end
+    loop every 2 s
+        P->>H: ping / pong (RTT, link health)
+    end
+    Note over P,H: While a control is held, the phone resends it every 100 ms.<br/>Socket drops use jittered backoff (250 ms to 8 s).<br/>A refreshed phone rejoins with its token, and a restarted TV resumes the room.
+```
+
+## Quick start
+
+```ts
+import { CouchHost, CouchClient, mountController, type ControlWidget } from 'couchpad';
+
+// TV / big screen: make a room and show `code` as a QR to https://your-site/?room=CODE
+const host = new CouchHost({ wsUrl: 'wss://your-server/ws', household: 'living-room' });
+const { code } = await host.create();
+host.on('player', (id: string) => host.sendTo(id, { t: 'screen', name: 'play', data: { widgets: [
+  { kind: 'joystick', id: 'move' }, { kind: 'button', id: 'jump', label: 'JUMP' } ] } }));
+host.on('input', (id: string, frame) => console.log(id, frame.axes, frame.buttons));
+
+// Phone: join, then render whatever controls the host asks for
+const client = new CouchClient({ wsUrl: 'wss://your-server/ws' });
+client.onMessage((m) => {
+  if (m.t === 'screen') mountController(document.body, (m.data as { widgets: ControlWidget[] }).widgets, (f) => client.sendInput(f));
+});
+await client.join(code, 'Maanav');            // client.mode is now 'direct' or 'relay'
+```
+
+A full runnable example (reference server, host page and phone page) is in [`examples/`](examples):
+
+```bash
+npm install
+npm run example        # http://localhost:8787  (open /phone.html?room=CODE on a phone on the same Wi-Fi)
+```
+
+Serve the phone page over HTTPS so tilt, vibration and wake-lock work.
+
+## Features
+
+- **Direct first, and the relay always works.** WebRTC DataChannel peer to peer on the LAN when it opens within **4 s**. Otherwise it falls back to a WebSocket relay, and payloads over **28 KB** are chunked to fit **32 KB** API Gateway frames (partial chunks expire after **10 s**).
+- **Two channels.** Continuous input (stick, tilt, held buttons) uses an unordered, no-retransmit channel throttled to **30 Hz**. One-shots (swipe, vote, text, drawings up to **200 KB**) and state use a reliable channel.
+- **Built for flaky phones.** Reconnect with jittered backoff (**250 ms to 8 s**, ±30%). A rejoin token gives a refreshed phone its seat back, and a restarted TV app resumes its room. While a link is down, reliable messages wait in a queue (max **64**). A **2 s** ping tracks RTT, and a **2 s** grace period covers ICE blips.
+- **Nothing sticks "pressed".** A held control is resent every **100 ms**, a button release is sent twice (**30 ms** apart), and a zeroing frame goes out on blur or hide.
+- **Framework-free widgets.** `mountController()` turns a declarative widget list into touch controls with pointer capture, haptics and CSS-variable theming. It has 8 widget kinds.
+- **Tiny and testable.** One runtime dependency (`zod`). WebSocket, RTCPeerConnection, clock and storage are all injectable, so **34 tests** run in Node without a browser.
+- **Proven on a TV.** In Cadabra it carries input from up to 4 phones to a Fire TV Stick HD, measured at **13 to 16 ms** on a home network.
+
+## Used by Cadabra
+
+[**Cadabra**](https://github.com/MaanavKrishna/cadabra) is a Fire TV party game where the room invents the game and then plays it. Every phone joins by QR and becomes the controller through couchpad. Cadabra's production signaling runs on API Gateway WebSocket, Lambda and DynamoDB.
+
+[![A phone joined to Cadabra and playing as the controller](https://raw.githubusercontent.com/MaanavKrishna/cadabra/main/docs/media/phone-join-play.jpg)](https://github.com/MaanavKrishna/cadabra)
 
 ## Install
 
@@ -18,50 +88,7 @@ Not yet published to npm. Use it from git or copy `src/`:
 npm install github:MaanavKrishna/couchpad
 ```
 
-It is shipped as TypeScript source (`main: src/index.ts`); bundle it with Vite, esbuild, or similar.
-
-## Quick start
-
-**Host (TV / big screen):**
-
-```ts
-import { CouchHost } from 'couchpad';
-
-const host = new CouchHost({ wsUrl: 'wss://your-signaling-server/ws', household: 'living-room' });
-const { code } = await host.create();          // show `code` / a QR to https://your-site/?room=CODE
-
-host.on('player', (id, info) => {
-  host.sendTo(id, { t: 'screen', name: 'play', data: { widgets: [
-    { kind: 'joystick', id: 'move' }, { kind: 'button', id: 'jump', label: 'JUMP' },
-  ] } });
-});
-host.on('input', (playerId, frame) => { /* frame.axes, frame.buttons, frame.swipe, ... */ });
-host.on('left', (playerId) => { /* phone disconnected */ });
-```
-
-**Phone (served over HTTPS so tilt, vibration and wake-lock work):**
-
-```ts
-import { CouchClient, mountController } from 'couchpad';
-
-const client = new CouchClient({ wsUrl: 'wss://your-signaling-server/ws' });
-let unmount: (() => void) | undefined;
-
-client.onMessage((m) => {
-  if (m.t !== 'screen') return;
-  unmount?.();
-  unmount = mountController(document.body, m.data.widgets, (frame) => client.sendInput(frame));
-});
-
-await client.join('ABCD', 'Maanav');            // client.mode is 'direct' or 'relay'
-```
-
-A complete runnable example (reference server + host page + phone page) lives in [`examples/`](examples). Try it:
-
-```bash
-npm install
-npm run example        # http://localhost:8787  (open /phone.html?room=CODE on a phone on the same Wi-Fi)
-```
+It ships as TypeScript source (`main: src/index.ts`). Bundle it with Vite, esbuild or similar.
 
 ## API
 
@@ -134,6 +161,10 @@ npm test          # 34 tests: transport state machine, reconnects, chunking, wid
 npm run typecheck
 ```
 
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT, copyright 2026 Maanav Krishna.
+MIT, copyright 2026 Maanav Krishna. See [LICENSE](LICENSE).
