@@ -293,8 +293,10 @@ body { background: var(--cp-ink); }
 .vp-doc .custom-block.warning { border-color: rgba(255,209,102,.35); background: rgba(255,209,102,.07); }
 .vp-doc .custom-block.danger { border-color: rgba(255,77,109,.4); background: rgba(255,77,109,.07); }
 .vp-doc .custom-block.info { border-color: var(--cp-line); background: var(--cp-panel); }
-.vp-doc table code { white-space: nowrap; }
 .vp-doc td { vertical-align: top; }
+@media (min-width: 721px) { .vp-doc table { display: table; width: 100%; } }
+.vp-doc td:first-child code { white-space: nowrap; }
+.vp-doc td:not(:first-child) code { overflow-wrap: anywhere; }
 .vp-doc .header-anchor { position: relative; }
 .vp-doc .header-anchor[data-copied]::after { content: 'Link copied'; position: absolute; left: 0; bottom: 100%; transform: translateY(-4px); white-space: nowrap; z-index: 2;
   font: 500 .72rem var(--vp-font-family-base); color: var(--cp-ink); background: var(--cp-cyan); padding: 2px 8px; border-radius: 6px; }

@@ -52,7 +52,7 @@ defineProps<{ kind: 'signaling' | 'channels' | 'fallback' | 'chunking' | 'keepal
         <path class="l dim" d="M175 68 L225 68" marker-end="url(#cf-a)" />
         <g v-for="(y, i) in [20, 64, 108]" :key="i">
           <rect x="235" :y="y" width="150" height="36" rx="7" class="amo" />
-          <text x="310" :y="y + 23" class="t amt">~chunk seq {{ i }}, total 3</text>
+          <text x="310" :y="y + 23" class="t amt">chunk {{ i + 1 }} of 3</text>
         </g>
         <path class="l dim" d="M390 68 L440 68" marker-end="url(#cf-a)" />
         <rect x="450" y="40" width="170" height="56" rx="8" class="amf" /><text x="535" y="73" class="tk">reassembled</text>
@@ -67,8 +67,8 @@ defineProps<{ kind: 'signaling' | 'channels' | 'fallback' | 'chunking' | 'keepal
         </g>
         <text class="t" x="240" y="142">a resend every 100 ms</text>
         <g v-for="x in [440, 470]" :key="x"><line :x1="x" y1="80" :x2="x" y2="118" class="tick ro" /><circle :cx="x" cy="80" r="6" class="rof" /></g>
-        <text class="t rot" x="492" y="84" style="text-anchor: start">release × 2, 30 ms apart</text>
-        <text class="t" x="530" y="142">blur or hidden tab: zeroed frame</text>
+        <text class="t rot" x="540" y="34">release × 2, 30 ms apart</text>
+        <text class="t" x="515" y="142">blur or hidden tab: zeroed frame</text>
       </template>
 
       <template v-else-if="kind === 'queue'">
@@ -85,8 +85,8 @@ defineProps<{ kind: 'signaling' | 'channels' | 'fallback' | 'chunking' | 'keepal
         <g class="n"><rect x="20" y="55" width="120" height="60" rx="10" /><text x="80" y="90">phone</text></g>
         <g class="n"><rect x="265" y="55" width="110" height="60" rx="10" /><text x="320" y="90">server</text></g>
         <path class="l dim" d="M262 70 L142 70" marker-end="url(#cf-a)" /><text class="t" x="200" y="50">token</text>
-        <rect x="20" y="128" width="120" height="24" rx="6" class="amo" /><text x="80" y="145" class="t amt">sessionStorage</text>
-        <path class="l cy" d="M142 100 L262 100" marker-end="url(#cf-a)" /><text class="t cyt" x="200" y="124">join + rejoinToken</text>
+        <rect x="15" y="138" width="130" height="26" rx="6" class="amo" /><text x="80" y="156" class="t amt">sessionStorage</text>
+        <path class="l cy" d="M142 100 L262 100" marker-end="url(#cf-a)" /><text class="t cyt" x="205" y="122">join + rejoinToken</text>
         <path class="l dim" d="M378 85 L508 85" marker-end="url(#cf-a)" />
         <g class="n"><rect x="510" y="55" width="110" height="60" rx="10" /><text x="565" y="84">TV</text><text x="565" y="102" class="t cyt">same p1</text></g>
         <text class="t" x="445" y="70">player.joined</text>
@@ -128,5 +128,5 @@ defineProps<{ kind: 'signaling' | 'channels' | 'fallback' | 'chunking' | 'keepal
 .cyo { fill: rgba(76,201,240,.12); stroke: var(--cp-cyan); stroke-width: 1.5; }
 .amo { fill: rgba(255,209,102,.1); stroke: var(--cp-amber); stroke-width: 1.5; }
 .x { stroke: var(--cp-rose); stroke-width: 3.5; stroke-linecap: round; fill: none; }
-@media (max-width: 640px) { .cf { overflow-x: auto; } .cf svg { min-width: 560px; } }
+@media (max-width: 640px) { .cf { padding: 10px 4px 8px; } .t { font-size: 16px; } .n text { font-size: 19px; } }
 </style>
