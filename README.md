@@ -1,5 +1,7 @@
 # couchpad
 
+**Docs: [maanavkrishna.github.io/couchpad](https://maanavkrishna.github.io/couchpad/)**
+
 [![CI](https://github.com/MaanavKrishna/couchpad/actions/workflows/ci.yml/badge.svg)](https://github.com/MaanavKrishna/couchpad/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
