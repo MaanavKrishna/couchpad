@@ -25,7 +25,7 @@ onMounted(() => {
   const st = stage.value!, cv = fx.value!, gc = game.value!;
   const ctx = cv.getContext('2d')!, g = gc.getContext('2d')!;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  let W = 0, H = 0, from = { x: 0, y: 0 }, to = { x: 0, y: 0 }, GW = 0, GH = 0, gx0 = 0, gy0 = 0;
+  let W = 0, H = 0, from = { x: 0, y: 0 }, to = { x: 0, y: 0 }, GW = 0, GH = 0, GRW = 0, GRH = 0, gx0 = 0, gy0 = 0;
 
   const measure = () => {
     const r = st.getBoundingClientRect();
@@ -37,7 +37,7 @@ onMounted(() => {
     to = { x: t.left - r.left + t.width * 0.22, y: t.top - r.top + t.height * 0.55 };
     const gr = gc.getBoundingClientRect();
     gx0 = gr.left - r.left; gy0 = gr.top - r.top;
-    GW = gr.width; GH = gr.height;
+    GW = gc.clientWidth; GH = gc.clientHeight; GRW = gr.width; GRH = gr.height;
     gc.width = GW * dpr; gc.height = GH * dpr;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
   };
@@ -82,7 +82,7 @@ onMounted(() => {
     // packets
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
-    to = { x: gx0 + px * GW, y: gy0 + py * GH };
+    to = { x: gx0 + px * GRW, y: gy0 + py * GRH };
     const mx = (from.x + to.x) / 2, my = Math.min(from.y, to.y) - H * 0.18;
     for (let i = pkts.length - 1; i >= 0; i--) {
       const p = pkts[i]!;

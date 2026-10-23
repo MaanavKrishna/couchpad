@@ -17,14 +17,18 @@ onMounted(() => {
       const h = document.documentElement;
       const k = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
       if (bar.value) bar.value.style.transform = `scaleX(${k.toFixed(4)})`;
+      // a fast jump can skip elements entirely, so reveal anything already above the fold line
+      if (rio) document.querySelectorAll('.cp-reveal:not(.is-in)').forEach((el) => {
+        if (el.getBoundingClientRect().top < innerHeight) { el.classList.add('is-in'); rio!.unobserve(el); }
+      });
     });
   };
-  window.addEventListener('scroll', onScroll, { passive: true });
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.documentElement.classList.add('cp-reveal-ready');
     rio = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); rio!.unobserve(e.target); } }), { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
     document.querySelectorAll('.cp-reveal').forEach((el) => rio!.observe(el));
   }
+  window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 });
 onBeforeUnmount(() => {

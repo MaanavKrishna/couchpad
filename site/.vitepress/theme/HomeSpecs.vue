@@ -14,6 +14,7 @@ const rows = [
 const shown = ref(rows.map((r) => r.v));
 const root = ref<HTMLElement | null>(null);
 let io: IntersectionObserver | undefined;
+let onScroll: (() => void) | undefined;
 
 function spot(e: PointerEvent) {
   const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect();
@@ -24,24 +25,26 @@ function spot(e: PointerEvent) {
 onMounted(() => {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   shown.value = rows.map(() => 0);
-  io = new IntersectionObserver((es) => {
-    for (const e of es) {
-      if (!e.isIntersecting) continue;
-      const i = Number((e.target as HTMLElement).dataset.i);
-      (e.target as HTMLElement).classList.add('is-in');
-      io!.unobserve(e.target);
-      const t0 = performance.now(), dur = 1100 + (i % 2) * 150;
-      const step = (now: number) => {
-        const k = Math.min(1, (now - t0) / dur), ease = 1 - Math.pow(1 - k, 4);
-        shown.value[i] = Math.round(rows[i]!.v * ease);
-        if (k < 1) requestAnimationFrame(step);
-      };
-      setTimeout(() => requestAnimationFrame(step), (i % 2) * 120);
-    }
-  }, { threshold: 0.4 });
-  root.value?.querySelectorAll('.cp-spec').forEach((el) => io!.observe(el));
+  const fire = (el: HTMLElement) => {
+    if (el.classList.contains('is-in')) return;
+    const i = Number(el.dataset.i);
+    el.classList.add('is-in');
+    io!.unobserve(el);
+    const t0 = performance.now(), dur = 1100 + (i % 2) * 150;
+    const step = (now: number) => {
+      const k = Math.min(1, Math.max(0, (now - t0) / dur)), ease = 1 - Math.pow(1 - k, 4);
+      shown.value[i] = Math.round(rows[i]!.v * ease);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) fire(e.target as HTMLElement); }, { threshold: 0.4 });
+  const cards = [...(root.value?.querySelectorAll<HTMLElement>('.cp-spec') ?? [])];
+  cards.forEach((el) => io!.observe(el));
+  onScroll = () => { for (const el of cards) if (!el.classList.contains('is-in') && el.getBoundingClientRect().top < innerHeight) fire(el); };
+  window.addEventListener('scroll', onScroll, { passive: true });
 });
-onBeforeUnmount(() => io?.disconnect());
+onBeforeUnmount(() => { io?.disconnect(); if (onScroll) window.removeEventListener('scroll', onScroll); });
 </script>
 
 <template>

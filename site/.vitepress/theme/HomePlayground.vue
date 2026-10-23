@@ -86,7 +86,9 @@ onMounted(() => {
   const ku = (e: KeyboardEvent) => { if (keys.delete(e.key)) applyKeys(); };
   p.addEventListener('keydown', kd); p.addEventListener('keyup', ku);
 
+  let visible = false;
   const keepTimer = setInterval(() => {
+    if (!visible) return;
     const now = performance.now();
     if (pending && now - lastSent >= INTERVAL) return emit('move', now);
     if (active() && now - lastSent >= KEEPALIVE - 2) emit('keep', now);
@@ -97,14 +99,18 @@ onMounted(() => {
   const markTouched = () => { touched = true; };
   p.addEventListener('pointerdown', markTouched, { once: true });
   p.addEventListener('keydown', markTouched, { once: true });
-  let visible = false;
-  const io = new IntersectionObserver(([e]) => { visible = !!e?.isIntersecting; });
+  const io = new IntersectionObserver(([e]) => {
+    visible = !!e?.isIntersecting;
+    if (visible && !raf) raf = requestAnimationFrame(frame);
+  });
   io.observe(c);
 
   const t0 = performance.now();
-  const frame = (now: number) => {
+  // eslint-disable-next-line prefer-const
+  let frame: (now: number) => void;
+  frame = (now: number) => {
+    if (!visible) { raf = 0; return; }
     raf = requestAnimationFrame(frame);
-    if (!visible) return;
     if (!touched && !reduced) {
       const s = (now - t0) / 1000;
       const on = s % 6 < 4;
@@ -144,7 +150,6 @@ onMounted(() => {
       wg.beginPath(); wg.arc(x, y, q.kind === 'move' ? 4 : 6, 0, Math.PI * 2); wg.fill();
     }
   };
-  raf = requestAnimationFrame(frame);
 
   cleanup = () => {
     cancelAnimationFrame(raf); clearInterval(keepTimer); ro.disconnect(); io.disconnect();

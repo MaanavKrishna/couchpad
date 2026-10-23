@@ -43,6 +43,7 @@ let timers: ReturnType<typeof setTimeout>[] = [];
 let streams: ReturnType<typeof setInterval>[] = [];
 let raf = 0;
 let reduced = false;
+let vis: IntersectionObserver | undefined;
 let logSeq = 0;
 const packets: { el: SVGElement; route: Seg[]; t0: number; dur: number }[] = [];
 
@@ -108,7 +109,9 @@ function place(p: (typeof packets)[number], now: number) {
   return k >= 1;
 }
 
+let onScreen = true;
 function tick(now: number) {
+  if (!onScreen) { raf = 0; return; }
   for (let i = packets.length - 1; i >= 0; i--) {
     const p = packets[i]!;
     if (place(p, now)) { p.el.remove(); packets.splice(i, 1); }
@@ -236,10 +239,15 @@ onMounted(() => {
   pickGeo();
   mq.addEventListener('change', pickGeo);
   raf = requestAnimationFrame(tick);
+  vis = new IntersectionObserver(([e]) => {
+    onScreen = !!e?.isIntersecting;
+    if (onScreen && !raf) raf = requestAnimationFrame(tick);
+  });
+  if (svg.value) vis.observe(svg.value);
   run(props.scenario ?? 'home');
   watch(() => props.scenario, (id) => { if (id && id !== active.value) run(id); });
 });
-onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); mq?.removeEventListener('change', pickGeo); });
+onBeforeUnmount(() => { reset(); cancelAnimationFrame(raf); vis?.disconnect(); mq?.removeEventListener('change', pickGeo); });
 </script>
 
 <template>
