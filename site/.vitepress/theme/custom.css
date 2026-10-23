@@ -162,7 +162,7 @@ body { background: var(--cp-ink); }
 
 @media (min-width: 1100px) {
   .cp-hero-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; gap: 56px; }
-  .cp-title { font-size: clamp(3rem, 4.6vw, 4.6rem); }
+  .cp-title { font-size: clamp(3rem, 4.4vw, 4.4rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -174,3 +174,28 @@ body { background: var(--cp-ink); }
 .cp-cadabra p { margin: 0 0 14px; }
 @media (max-width: 640px) { .cp-install { font-size: 0.78rem; } }
 @media (max-width: 640px) { .cp-log { min-height: 330px; } }
+
+/* ---------- motion pass ---------- */
+.cp-progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; transform-origin: 0 50%; transform: scaleX(0);
+  background: linear-gradient(90deg, var(--cp-cyan), var(--cp-amber) 60%, var(--cp-rose)); box-shadow: 0 0 12px rgba(76,201,240,.6); }
+.cp-hero { position: relative; overflow: hidden; isolation: isolate; }
+.cp-mesh { position: absolute; inset: -20% -10% 0; z-index: -1; filter: blur(70px); opacity: .55; pointer-events: none; }
+.cp-mesh i { position: absolute; border-radius: 50%; will-change: transform; }
+.cp-mesh i:nth-child(1) { width: 46vw; height: 46vw; left: 48%; top: 0; background: radial-gradient(circle, rgba(76,201,240,.55), transparent 65%); animation: cp-drift1 26s ease-in-out infinite alternate; }
+.cp-mesh i:nth-child(2) { width: 36vw; height: 36vw; left: 70%; top: 30%; background: radial-gradient(circle, rgba(255,77,109,.38), transparent 65%); animation: cp-drift2 32s ease-in-out infinite alternate; }
+.cp-mesh i:nth-child(3) { width: 40vw; height: 40vw; left: 5%; top: 35%; background: radial-gradient(circle, rgba(124,92,255,.35), transparent 65%); animation: cp-drift3 38s ease-in-out infinite alternate; }
+@keyframes cp-drift1 { to { transform: translate(-14vw, 8vh) scale(1.15); } }
+@keyframes cp-drift2 { to { transform: translate(-20vw, -10vh) scale(.9); } }
+@keyframes cp-drift3 { to { transform: translate(12vw, -6vh) scale(1.2); } }
+.cp-word { display: inline-block; margin-right: .22em; opacity: 0; transform: translateY(.35em); filter: blur(8px);
+  animation: cp-word .8s cubic-bezier(.2,.7,.1,1) forwards; animation-delay: var(--d); }
+.cp-title { max-width: none; }
+.cp-in { opacity: 0; transform: translateY(14px); animation: cp-word .9s cubic-bezier(.2,.7,.1,1) forwards; animation-delay: var(--d); }
+@keyframes cp-word { to { opacity: 1; transform: none; filter: blur(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .cp-word, .cp-in { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .cp-mesh i { animation: none !important; }
+}
+@media (max-width: 640px) { .cp-mesh { opacity: .4; filter: blur(50px); } .cp-mesh i:nth-child(3) { display: none; } }
+.cp-session { padding: 72px 0; border-top: 1px solid var(--cp-line); }
+.cp-hero-art { min-width: 0; }

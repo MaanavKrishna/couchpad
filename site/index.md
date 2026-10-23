@@ -7,6 +7,14 @@ titleTemplate: Phones as game controllers, no app
 
 <HomeHero />
 
+<section class="cp-session" aria-labelledby="cp-session-h">
+<div class="cp-wrap">
+<h2 id="cp-session-h" class="cp-h2">Watch a session survive the network</h2>
+<p class="cp-sub-lede">Pick a network and watch what couchpad sends. Every message in the log is a real couchpad message.</p>
+<LinkDiagram />
+</div>
+</section>
+
 <HomeSpecs />
 
 <section class="cp-quick" aria-labelledby="cp-quick-h">
