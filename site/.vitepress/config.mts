@@ -32,20 +32,29 @@ export default defineConfig({
   themeConfig: {
     logo: { src: '/favicon.svg', alt: '' },
     nav: [
-      { text: 'Guide', link: '/docs/getting-started', activeMatch: '/docs/(getting-started|concepts|example-server|testing|faq)' },
-      { text: 'API', link: '/docs/api', activeMatch: '/docs/(api|widgets|protocol)' },
+      { text: 'Docs', link: '/docs/', activeMatch: '/docs/(?!api|widgets|protocol|errors|changelog)' },
+      { text: 'Guides', link: '/docs/guides/paddle-game', activeMatch: '/docs/guides/' },
+      { text: 'API', link: '/docs/api', activeMatch: '/docs/(api|widgets|protocol|errors)' },
       { text: 'Changelog', link: '/docs/changelog' },
       { text: 'Cadabra', link: 'https://github.com/MaanavKrishna/cadabra' },
     ],
     sidebar: [
       {
-        text: 'Guide',
+        text: 'Start here',
         items: [
+          { text: 'Overview', link: '/docs/' },
           { text: 'Getting started', link: '/docs/getting-started' },
           { text: 'Concepts', link: '/docs/concepts' },
+        ],
+      },
+      {
+        text: 'Guides',
+        items: [
+          { text: 'Two-player paddle game', link: '/docs/guides/paddle-game' },
+          { text: 'Deploy the signaling server', link: '/docs/guides/deploy-server' },
+          { text: 'Debugging connections', link: '/docs/guides/debugging' },
           { text: 'Running the example server', link: '/docs/example-server' },
           { text: 'Testing', link: '/docs/testing' },
-          { text: 'FAQ and troubleshooting', link: '/docs/faq' },
         ],
       },
       {
@@ -54,13 +63,21 @@ export default defineConfig({
           { text: 'API reference', link: '/docs/api' },
           { text: 'Widgets', link: '/docs/widgets' },
           { text: 'Protocol messages', link: '/docs/protocol' },
+          { text: 'Error codes', link: '/docs/errors' },
+        ],
+      },
+      {
+        text: 'More',
+        items: [
+          { text: 'FAQ and troubleshooting', link: '/docs/faq' },
           { text: 'Changelog', link: '/docs/changelog' },
         ],
       },
     ],
     socialLinks: [{ icon: 'github', link: 'https://github.com/MaanavKrishna/couchpad' }],
     search: { provider: 'local' },
-    outline: { level: [2, 3] },
+    outline: { level: [2, 3], label: 'On this page' },
+    docFooter: { prev: 'Previous', next: 'Next' },
     editLink: { pattern: 'https://github.com/MaanavKrishna/couchpad/edit/main/site/:path', text: 'Edit this page on GitHub' },
     footer: { message: 'MIT licensed. Extracted from the Fire TV party game Cadabra.', copyright: 'Copyright 2026 Maanav Krishna' },
   },

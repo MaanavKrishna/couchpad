@@ -11,6 +11,17 @@ import './custom.css';
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
+    if (typeof window !== 'undefined') {
+      // Clicking a heading's # copies its deep link, and still jumps to it.
+      document.addEventListener('click', (e) => {
+        const a = (e.target as HTMLElement | null)?.closest?.('a.header-anchor') as HTMLAnchorElement | null;
+        if (!a || !navigator.clipboard) return;
+        navigator.clipboard.writeText(a.href).then(() => {
+          a.dataset.copied = '';
+          setTimeout(() => { delete a.dataset.copied; }, 1400);
+        }, () => {});
+      });
+    }
     app.component('LinkDiagram', LinkDiagram);
     app.component('HomeHero', HomeHero);
     app.component('HomeSpecs', HomeSpecs);

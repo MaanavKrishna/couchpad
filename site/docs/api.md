@@ -1,12 +1,24 @@
+---
+outline: [2, 3]
+---
+
 # API reference
 
-Everything below is exported from the package root:
+Everything below is exported from the package root. Signatures are copied from `src/`, and each heading has a link you can copy with the `#` next to it.
 
 ```ts
-import { CouchHost, CouchClient, mountController /* , ... */ } from 'couchpad';
+import { CouchHost, CouchClient, mountController } from 'couchpad';
 ```
 
-Widgets have their own page: [Widgets](./widgets). Wire messages are listed in [Protocol messages](./protocol).
+| Module | Exports |
+|---|---|
+| [`host.ts`](#couchhost) | `CouchHost`, `CouchHostOpts`, `PlayerView`, `TV_TOKEN_KEY`, `LAST_ROOM_KEY` |
+| [`client.ts`](#couchclient) | `CouchClient`, `CouchClientOpts`, `Transport`, `TransportPolicy`, timing constants |
+| [`peer.ts`](#peer) | `Peer`, `PeerOpts`, `Mode`, `SignalData`, `RTCLike`, `ChannelLike`, `RTCCtor`, ICE constants |
+| [`signaling.ts`](#signaling) | `Signaling`, `SignalingOpts`, `Clock`, `defaultClock`, `StorageLike`, `defaultStorage`, `WebSocketLike`, backoff constants |
+| [`util.ts`](#relay-utilities) | `relayPayloads`, `tooLargeForRelay`, `Reassembler`, `parsePeerMsg`, `BoundedQueue`, `Emitter`, size constants |
+| [`types.ts`](#types-and-schemas) | `InputFrame`, `ControlWidget`, `PeerMsg`, their zod schemas, wire types, `ROOM_CODE_RE` |
+| [`widgets/`](./widgets) | `mountController` and the widget factories, on their own page |
 
 ## CouchHost
 
@@ -16,58 +28,81 @@ The TV side. Owns the room, answers each phone's WebRTC offer and relays when di
 class CouchHost {
   code?: string;
   constructor(opts: CouchHostOpts);
-  create(): Promise<{ code: string }>;
-  resume(code?: string): Promise<{ code: string }>;
-  on(ev: 'player' | 'left' | 'input' | 'msg' | 'resumed' | 'error', cb: Listener): void;
-  sendTo(playerId: string, msg: PeerMsg): boolean;
-  broadcast(msg: PeerMsg): void;
-  players(): Map<string, PlayerView>;
-  close(): void;
 }
 ```
 
-### CouchHostOpts
+### new CouchHost(opts)
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `wsUrl` | `string` | required | Signaling server WebSocket URL |
+| `household` | `string` | required | Sent with `room.create` |
+| `WebSocket` | `WebSocketCtor` | `globalThis.WebSocket` | Inject for Node or tests |
+| `RTCPeerConnection` | `RTCCtor` | `globalThis.RTCPeerConnection` | Without one, phones fall back to relay |
+| `clock` | `Clock` | `defaultClock` | Timers and `now()` |
+| `random` | `() => number` | `Math.random` | Backoff jitter source |
+| `storage` | `StorageLike` | `sessionStorage` | Holds the TV token for `resume()` |
+| `iceServers` | `{ urls: string \| string[] }[]` | `DEFAULT_ICE` | STUN/TURN servers |
+| `transport` | `TransportPolicy` | `'auto'` | `'relay-only'` skips WebRTC |
+| `pingIntervalMs` | `number` | `2000` | Ping period |
+| `openTimeoutMs` | `number` | `4000` | DataChannel open timeout per phone |
 
 ```ts
-interface CouchHostOpts {
-  wsUrl: string;
-  household: string;                          // sent with room.create
-  WebSocket?: WebSocketCtor;                  // default: globalThis.WebSocket
-  RTCPeerConnection?: RTCCtor;                // default: globalThis.RTCPeerConnection
-  clock?: Clock;                              // default: defaultClock
-  random?: () => number;                      // backoff jitter source
-  storage?: StorageLike;                      // holds the TV token; default sessionStorage
-  iceServers?: { urls: string | string[] }[]; // default: DEFAULT_ICE (Google STUN)
-  transport?: TransportPolicy;                // 'auto' | 'relay-only'
-  pingIntervalMs?: number;                    // default 2000
-  openTimeoutMs?: number;                     // default 4000
-}
+const host = new CouchHost({ wsUrl: 'wss://example.com/ws', household: 'living-room' });
 ```
 
-### create()
-
-Connects and sends `room.create`. Resolves with the new room code.
+### host.create()
 
 ```ts
-const { code } = await host.create(); // e.g. 'KMPV'
+create(): Promise<{ code: string }>
 ```
 
-### resume(code?)
+Connects and sends `room.create`. Players from a previous room are forgotten first.
 
-Reclaims a room after a reload using the TV token in storage. Without `code` it uses the last room (`LAST_ROOM_KEY`). Rejects with `room.badToken` when no token is stored, or with the server's error code if the room is gone. On rejection the stored token is forgotten, so falling back to `create()` is safe.
+**Returns** the new room code. The code and TV token are saved to `storage`.
+
+**Rejects** with `host.superseded` if `create()` or `resume()` is called again before it settles, `host.closed` if `close()` is called first, or a server error code.
+
+```ts
+const { code } = await host.create(); // 'KMPV'
+```
+
+**See also** [resume()](#host-resume-code), [Error codes](./errors#host-tv).
+
+### host.resume(code?)
+
+```ts
+resume(code?: string): Promise<{ code: string }>
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `code` | `string` | last room (`LAST_ROOM_KEY`) | Room to reclaim; upper-cased |
+
+Reclaims a room after a reload, using the stored TV token. Players are forgotten if the code differs from the current one. On success the host emits `resumed`, and the server's live player list replaces its own.
+
+**Returns** the room code.
+
+**Rejects** with `room.badToken` when no token is stored, the server's code (`room.notFound`, `room.badToken`) when it refuses, `host.superseded` or `host.closed`. A refused resume forgets the token and stops the socket, so falling back to `create()` is safe.
 
 ```ts
 const { code } = await host.resume().catch(() => host.create());
 ```
 
-### on(event, cb)
+**See also** [TV resume](./concepts#tv-resume).
+
+### host.on(event, cb)
+
+```ts
+on(ev: 'player' | 'left' | 'input' | 'msg' | 'resumed' | 'error', cb: Listener): void
+```
 
 | Event | Callback | When |
 |---|---|---|
 | `player` | `(id: string, info: { name: string; avatar: string })` | A phone joins or rejoins, or reappears after a resume |
 | `left` | `(id: string)` | A phone's socket closes, or it is missing after a resume |
-| `input` | `(id: string, frame: InputFrame)` | A validated input frame. Stale continuous frames are dropped first |
-| `msg` | `(id: string, msg: PeerMsg)` | Any other peer message, for example a `screen` sent by the phone |
+| `input` | `(id: string, frame: InputFrame)` | A validated input frame. Continuous frames that are not newer are dropped first |
+| `msg` | `(id: string, msg: PeerMsg)` | Any other peer message, such as a `screen` sent by the phone |
 | `resumed` | `(code: string)` | `room.resumed` arrived |
 | `error` | `(code: BackendErrorCode)` | A server error outside a pending create or resume |
 
@@ -77,45 +112,62 @@ host.on('input', (id: string, f: InputFrame) => {
 });
 ```
 
-### sendTo(playerId, msg)
+### host.sendTo(playerId, msg)
 
-Reliable send to one player: the `state` channel when direct, else the relay (chunked above 28 KB), else the queue (max 64) while the socket is down. Returns `false` for unknown or departed players and when the queue is full.
+```ts
+sendTo(playerId: string, msg: PeerMsg): boolean
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `playerId` | `string` | Target player |
+| `msg` | `PeerMsg` | Usually `{ t: 'screen', name, data }` |
+
+Reliable send: the `state` DataChannel when direct, else the relay (chunked above 28 KB), else the queue (max 64) while the socket is down.
+
+**Returns** `false` when the player is unknown or has left, the queue is full, or the message needs more than 64 relay chunks.
 
 ```ts
 host.sendTo(id, { t: 'screen', name: 'vote', data: { widgets: [{ kind: 'vote', id: 'v', options: ['Red', 'Blue'] }] } });
 ```
 
-### broadcast(msg)
+**See also** [Reliable queue](./concepts#reliable-queue), [tooLargeForRelay()](#toolargeforrelay-msg).
 
-`sendTo` for every connected player.
+### host.broadcast(msg)
+
+```ts
+broadcast(msg: PeerMsg): void
+```
+
+`sendTo()` for every connected player.
 
 ```ts
 host.broadcast({ t: 'screen', name: 'lobby' });
 ```
 
-### players()
+### host.players()
 
-A snapshot of every player the host has seen.
+```ts
+players(): Map<string, PlayerView>
+```
+
+**Returns** a snapshot of every player the host has seen in this room.
+
+```ts
+interface PlayerView { name: string; avatar: string; connected: boolean; transport: Mode; rttMs: number }
+```
 
 ```ts
 for (const [id, p] of host.players()) console.log(id, p.name, p.transport, `${p.rttMs} ms`);
 ```
 
-### close()
-
-Closes the socket and every peer, stops pings and clears the queue.
-
-### PlayerView
+### host.close()
 
 ```ts
-interface PlayerView {
-  name: string;
-  avatar: string;
-  connected: boolean;
-  transport: Mode;   // 'direct' | 'relay'
-  rttMs: number;
-}
+close(): void
 ```
+
+Closes the socket and every peer, stops pings, clears the queue and chunk buffers. A pending `create()` or `resume()` rejects with `host.closed`.
 
 ### TV_TOKEN_KEY, LAST_ROOM_KEY
 
@@ -124,53 +176,60 @@ const TV_TOKEN_KEY: (code: string) => string; // 'couchpad.tv.<CODE>'
 const LAST_ROOM_KEY = 'couchpad.tv.last';
 ```
 
-Storage keys the host uses. Useful if you want to clear a saved room:
+The storage keys the host uses.
 
 ```ts
-sessionStorage.removeItem(TV_TOKEN_KEY('KMPV'));
+sessionStorage.removeItem(TV_TOKEN_KEY('KMPV')); // forget a saved room
 ```
 
 ## CouchClient
 
-The phone side. Joins a room, offers WebRTC to the TV and relays through the socket when direct is down. Implements `Transport`.
+The phone side. Joins a room, offers WebRTC to the TV and relays through the socket when direct is down. Implements [`Transport`](#transport).
 
 ```ts
 class CouchClient implements Transport {
   playerId?: string;
   constructor(opts: CouchClientOpts);
-  readonly mode: Mode;
-  rttMs(): number;
-  join(code: string, name: string): Promise<{ playerId: string }>;
-  sendInput(frame: InputFrame): void;
-  send(msg: PeerMsg): boolean;
-  onMessage(cb: (m: PeerMsg) => void): void;
-  on(ev: 'msg' | 'mode' | 'tv.left' | 'tv.back' | 'error' | 'link', cb: Listener): void;
-  close(): void;
 }
 ```
 
-### CouchClientOpts
+### new CouchClient(opts)
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `wsUrl` | `string` | required | Signaling server WebSocket URL |
+| `WebSocket` | `WebSocketCtor` | `globalThis.WebSocket` | Inject for Node or tests |
+| `RTCPeerConnection` | `RTCCtor` | `globalThis.RTCPeerConnection` | Without one, the client stays on relay |
+| `clock` | `Clock` | `defaultClock` | Timers and `now()` |
+| `random` | `() => number` | `Math.random` | Backoff jitter source |
+| `storage` | `StorageLike` | `sessionStorage` | Rejoin tokens, keyed by room code |
+| `iceServers` | `{ urls: string \| string[] }[]` | `DEFAULT_ICE` | STUN/TURN servers |
+| `transport` | `TransportPolicy` | `'auto'` | `'relay-only'` skips WebRTC |
+| `inputHz` | `number` | `30` | Continuous input rate |
+| `pingIntervalMs` | `number` | `2000` | Ping period |
+| `openTimeoutMs` | `number` | `4000` | DataChannel open timeout |
+| `joinTimeoutMs` | `number` | `8000` | `join()` gives up after this |
 
 ```ts
-interface CouchClientOpts {
-  wsUrl: string;
-  WebSocket?: WebSocketCtor;
-  RTCPeerConnection?: RTCCtor;
-  clock?: Clock;
-  random?: () => number;
-  storage?: StorageLike;                      // rejoin tokens keyed by room code; default sessionStorage
-  iceServers?: { urls: string | string[] }[];
-  transport?: TransportPolicy;                // 'relay-only' skips WebRTC entirely
-  inputHz?: number;                           // default 30
-  pingIntervalMs?: number;                    // default 2000
-  openTimeoutMs?: number;                     // default 4000
-  joinTimeoutMs?: number;                     // default 8000
-}
+const client = new CouchClient({ wsUrl: 'wss://example.com/ws' });
 ```
 
-### join(code, name)
+### client.join(code, name)
 
-Joins (or switches to) a room. The code is upper-cased. A stored rejoin token for that code is sent automatically. A second call supersedes a pending one, which rejects with `join.superseded`. Other rejections: `join.timeout`, `join.closed`, or a server code such as `room.notFound` and `room.full`.
+```ts
+join(code: string, name: string): Promise<{ playerId: string }>
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `code` | `string` | Room code; upper-cased |
+| `name` | `string` | Display name sent to the host |
+
+Joins (or switches to) a room. A stored rejoin token for that code is sent automatically.
+
+**Returns** the `playerId`, which is also set on `client.playerId`.
+
+**Rejects** with `join.timeout`, `join.superseded` (a newer `join()`), `join.closed` (`close()` was called), or a server code such as `room.notFound` or `room.full`.
 
 ```ts
 try {
@@ -180,29 +239,58 @@ try {
 }
 ```
 
-### sendInput(frame)
+**See also** [Rejoin tokens](./concepts#rejoin-tokens), [Error codes](./errors#client-phone).
 
-Splits a frame in two. One-shot fields (`swipe`, `vote`, `text`, `draw`) go reliably; a `draw` longer than `MAX_DRAW_BYTES` is dropped. Continuous fields (`axes`, `buttons`, `tilt`) go on the lossy channel, throttled to `inputHz`, immediately on a button edge, with a 100 ms keepalive while anything is held. Timestamps are kept strictly increasing.
+### client.sendInput(frame)
+
+```ts
+sendInput(frame: InputFrame): void
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `frame` | `InputFrame` | Usually produced by `mountController()` |
+
+Splits the frame in two. One-shot fields (`swipe`, `vote`, `text`, `draw`) go reliably, and a `draw` longer than `MAX_DRAW_BYTES` is dropped. Continuous fields (`axes`, `buttons`, `tilt`) go on the lossy channel, throttled to `inputHz`, sent at once on a button edge, and resent every 100 ms while anything is held. Timestamps are kept strictly increasing.
 
 ```ts
 client.sendInput({ t: performance.now(), axes: { x: 0.4, y: -1 }, buttons: { jump: true } });
 client.sendInput({ t: performance.now(), vote: 2 });
 ```
 
-### send(msg) and onMessage(cb)
+**See also** [Keepalive](./concepts#keepalive).
 
-Reliable app messages in either direction. `send` returns `false` only when the queue is full.
+### client.send(msg)
+
+```ts
+send(msg: PeerMsg): boolean
+```
+
+Reliable app message to the host, which receives it as a `msg` event.
+
+**Returns** `false` when the queue is full (64) or the message needs more than 64 relay chunks.
+
+```ts
+client.send({ t: 'screen', name: 'ready' });
+```
+
+### client.onMessage(cb)
+
+```ts
+onMessage(cb: (m: PeerMsg) => void): void
+```
+
+Called for every peer message from the host except pings.
 
 ```ts
 client.onMessage((m) => { if (m.t === 'screen') render(m.name, m.data); });
-client.send({ t: 'screen', name: 'ready' }); // arrives at the host as a 'msg' event
 ```
 
-### mode and rttMs()
+### client.on(event, cb)
 
-`mode` is `'direct'` or `'relay'`. `rttMs()` is the last measured round trip in ms (0 until the first pong).
-
-### on(event, cb)
+```ts
+on(ev: 'msg' | 'mode' | 'tv.left' | 'tv.back' | 'error' | 'link', cb: Listener): void
+```
 
 | Event | Callback | When |
 |---|---|---|
@@ -214,16 +302,25 @@ client.send({ t: 'screen', name: 'ready' }); // arrives at the host as a 'msg' e
 | `msg` | `(msg: PeerMsg)` | Same as `onMessage` |
 
 ```ts
-client.on('link', (s: 'down' | 'up') => banner.hidden = s === 'up');
+client.on('link', (s: 'down' | 'up') => { banner.hidden = s === 'up'; });
 ```
 
-### close()
+### client.mode, client.rttMs()
 
-Rejects any pending join with `join.closed`, closes the socket and the peer, and clears timers and the queue.
+```ts
+readonly mode: Mode;   // 'direct' | 'relay'
+rttMs(): number;       // last measured round trip, 0 before the first pong
+```
+
+### client.close()
+
+```ts
+close(): void
+```
+
+Rejects a pending join with `join.closed`, closes the socket and peer, and clears timers and the queue.
 
 ### Transport
-
-The interface both your game code and test doubles can target.
 
 ```ts
 interface Transport {
@@ -235,6 +332,8 @@ interface Transport {
 }
 type TransportPolicy = 'auto' | 'relay-only';
 ```
+
+Code your game against `Transport` and you can swap in a fake in tests.
 
 ### Client constants
 
@@ -249,38 +348,24 @@ type TransportPolicy = 'auto' | 'relay-only';
 
 ## Peer
 
-One WebRTC link with two DataChannels and the relay-fallback rules. `CouchHost` and `CouchClient` create these for you; use it directly only for a custom transport.
+One WebRTC link with two DataChannels and the relay-fallback rules. `CouchHost` and `CouchClient` create these; use it directly only for a custom transport.
+
+### new Peer(opts)
 
 ```ts
-type Mode = 'direct' | 'relay';
-
-class Peer {
-  mode: Mode;   // starts 'relay'
-  dead: boolean;
-  constructor(opts: PeerOpts);
-  start(): Promise<void>;                       // offerer: create channels, send offer
-  handleSignal(d: SignalData): Promise<void>;
-  sendLossy(data: string): boolean;             // 'input' channel; false = relay it yourself
-  sendReliable(data: string): boolean;          // 'state' channel; false = relay it yourself
-  fail(): void;                                 // give up on direct for good
-  close(): void;
-}
-
-interface PeerOpts {
-  role: 'offerer' | 'answerer';
-  RTC: RTCCtor;
-  clock: Clock;
-  iceServers?: { urls: string | string[] }[];
-  openTimeoutMs?: number;
-  signal: (d: SignalData) => void;
-  onMessage: (raw: string) => void;
-  onMode: (m: Mode) => void;
-}
-
-type SignalData =
-  | { kind: 'offer' | 'answer'; sdp: string }
-  | { kind: 'candidate'; candidate: unknown };
+new Peer(opts: PeerOpts)
 ```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `role` | `'offerer' \| 'answerer'` | required | The phone offers, the TV answers |
+| `RTC` | `RTCCtor` | required | `RTCPeerConnection` or a fake |
+| `clock` | `Clock` | required | Timers |
+| `iceServers` | `{ urls: string \| string[] }[]` | `DEFAULT_ICE` | STUN/TURN servers |
+| `openTimeoutMs` | `number` | `4000` | Fall back if both channels are not open by then |
+| `signal` | `(d: SignalData) => void` | required | Send an offer, answer or candidate to the other side |
+| `onMessage` | `(raw: string) => void` | required | A string arrived on either channel |
+| `onMode` | `(m: Mode) => void` | required | `'direct'` once open, `'relay'` after a failure |
 
 ```ts
 const peer = new Peer({
@@ -292,7 +377,30 @@ const peer = new Peer({
 await peer.start();
 ```
 
-`ChannelLike`, `RTCLike` and `RTCCtor` are the minimal structural types for `RTCDataChannel` and `RTCPeerConnection`, so you can pass fakes in tests.
+### Peer members
+
+| Member | Signature | Description |
+|---|---|---|
+| `mode` | `Mode` | Starts `'relay'` |
+| `dead` | `boolean` | True after `fail()` or `close()` |
+| `start()` | `() => Promise<void>` | Offerer only: create the `input` and `state` channels and send the offer |
+| `handleSignal(d)` | `(d: SignalData) => Promise<void>` | Apply a remote offer, answer or candidate. Bad signals are ignored |
+| `sendLossy(data)` | `(data: string) => boolean` | Send on `input`. `false` means relay it yourself |
+| `sendReliable(data)` | `(data: string) => boolean` | Send on `state`. `false` means relay it yourself |
+| `fail()` | `() => void` | Give up on direct for good |
+| `close()` | `() => void` | Close the connection |
+
+### Peer types and constants
+
+```ts
+type Mode = 'direct' | 'relay';
+type SignalData =
+  | { kind: 'offer' | 'answer'; sdp: string }
+  | { kind: 'candidate'; candidate: unknown };
+type RTCCtor = new (config: { iceServers: { urls: string | string[] }[] }) => RTCLike;
+```
+
+`RTCLike` and `ChannelLike` are the minimal structural types of `RTCPeerConnection` and `RTCDataChannel` that couchpad uses.
 
 | Constant | Value |
 |---|---|
@@ -305,41 +413,39 @@ await peer.start();
 
 The WebSocket link with auto-reconnect and backoff.
 
-```ts
-class Signaling {
-  constructor(opts: SignalingOpts);
-  readonly isOpen: boolean;
-  connect(): void;
-  send(m: ClientToBackend): boolean; // false (and dropped) while down
-  close(): void;                     // stops reconnecting
-}
+### new Signaling(opts)
 
-interface SignalingOpts {
-  url: string;
-  WebSocket?: WebSocketCtor;
-  clock: Clock;
-  random?: () => number;
-  onOpen: (reconnect: boolean) => void;   // join or resume here
-  onMessage: (m: BackendToClient) => void;
-  onDown?: () => void;
-}
-```
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `url` | `string` | required | WebSocket URL |
+| `WebSocket` | `WebSocketCtor` | `globalThis.WebSocket` | Inject for Node or tests |
+| `clock` | `Clock` | required | Timers |
+| `random` | `() => number` | `Math.random` | Jitter source |
+| `onOpen` | `(reconnect: boolean) => void` | required | Every (re)open; join or resume here |
+| `onMessage` | `(m: BackendToClient) => void` | required | Every parsed message with a string `t`. Errors thrown here are swallowed |
+| `onDown` | `() => void` | none | The socket closed |
 
 ```ts
 const sig = new Signaling({
-  url: 'wss://your-server/ws', clock: defaultClock,
+  url: 'wss://example.com/ws', clock: defaultClock,
   onOpen: () => sig.send({ t: 'room.create' }),
   onMessage: (m) => console.log(m.t),
 });
 sig.connect();
 ```
 
+### Signaling members
+
+| Member | Signature | Description |
+|---|---|---|
+| `isOpen` | `boolean` (getter) | The socket is open |
+| `connect()` | `() => void` | Open a socket. Closes any previous socket and cancels a pending retry |
+| `send(m)` | `(m: ClientToBackend) => boolean` | Send if open; `false` (and dropped) while down |
+| `close()` | `() => void` | Close and stop reconnecting |
+
 ### Injectable environment
 
 ```ts
-interface WebSocketLike { readyState: number; onopen; onclose; onerror; onmessage; send(data: string): void; close(): void }
-type WebSocketCtor = new (url: string) => WebSocketLike;
-
 interface Clock {
   now(): number;
   setTimeout(fn: () => void, ms: number): unknown;
@@ -350,32 +456,50 @@ interface Clock {
 const defaultClock: Clock; // looks up globals lazily, so fake timers installed later still apply
 
 interface StorageLike { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void }
-function defaultStorage(): StorageLike; // sessionStorage, or an in-memory map when blocked
+function defaultStorage(): StorageLike; // sessionStorage, or an in-memory map when it is blocked
+
+type WebSocketCtor = new (url: string) => WebSocketLike;
 ```
 
 ```ts
 import WebSocket from 'ws';
-const client = new CouchClient({ wsUrl: 'ws://localhost:8787/ws', WebSocket: WebSocket as unknown as WebSocketCtor, transport: 'relay-only' });
+const client = new CouchClient({
+  wsUrl: 'ws://localhost:8787/ws',
+  WebSocket: WebSocket as unknown as WebSocketCtor,
+  transport: 'relay-only',
+});
 ```
 
-| Constant | Value |
-|---|---|
-| `BACKOFF_MS` | `[250, 500, 1000, 2000, 4000, 8000]` |
-| `BACKOFF_JITTER` | `0.3` |
-| `STABLE_OPEN_MS` | `3000` |
+| Constant | Value | Meaning |
+|---|---|---|
+| `BACKOFF_MS` | `[250, 500, 1000, 2000, 4000, 8000]` | Reconnect delays |
+| `BACKOFF_JITTER` | `0.3` | ±30% |
+| `STABLE_OPEN_MS` | `3000` | Backoff resets only after a socket stays open this long |
 
-## Utilities
+## Relay utilities
 
 ### relayPayloads(msg)
 
 ```ts
-function relayPayloads(msg: unknown): unknown[];
+function relayPayloads(msg: unknown): unknown[]
 ```
 
-Returns `[msg]` when its JSON is at most `RELAY_CHUNK_BYTES`, else a list of `RelayChunk` envelopes.
+**Returns** `[msg]` when its UTF-8 JSON is at most `RELAY_CHUNK_BYTES`, else a list of `RelayChunk` envelopes, each under 28 KB serialized.
 
 ```ts
 for (const data of relayPayloads(bigMsg)) ws.send(JSON.stringify({ t: 'relay', to: 'tv', data }));
+```
+
+### tooLargeForRelay(msg)
+
+```ts
+function tooLargeForRelay(msg: unknown): boolean
+```
+
+**Returns** `true` when `msg` needs more than `MAX_CHUNKS` (64) relay chunks. Receivers reject such messages, so `send()` and `sendTo()` return `false` for them instead of queueing.
+
+```ts
+if (tooLargeForRelay(level)) splitLevel(level);
 ```
 
 ### Reassembler
@@ -383,11 +507,20 @@ for (const data of relayPayloads(bigMsg)) ws.send(JSON.stringify({ t: 'relay', t
 ```ts
 class Reassembler {
   constructor(clock: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(h: unknown): void });
-  accept(from: string, data: unknown): unknown; // complete payload, pass-through, or undefined while incomplete
+  accept(from: string, data: unknown): unknown;
+  drop(from: string): void;
   clear(): void;
 }
 interface RelayChunk { t: '~chunk'; id: number; seq: number; total: number; part: string }
 ```
+
+| Member | Description |
+|---|---|
+| `accept(from, data)` | Returns the complete payload, passes unchunked data through, or `undefined` while incomplete. Rejects malformed chunks, duplicates and parts over 28 KB |
+| `drop(from)` | Forget a sender's partials (it reconnected and its chunk ids restart) |
+| `clear()` | Forget everything |
+
+Partials expire after 10 s, and at most `MAX_OPEN_PER_SENDER` (4) are kept per sender; the oldest is dropped beyond that.
 
 ```ts
 const r = new Reassembler(defaultClock);
@@ -398,10 +531,10 @@ if (whole !== undefined) handle(whole);
 ### parsePeerMsg(raw)
 
 ```ts
-function parsePeerMsg(raw: unknown): PeerMsg | undefined;
+function parsePeerMsg(raw: unknown): PeerMsg | undefined
 ```
 
-Accepts a JSON string (DataChannel) or an object (relay) and returns a validated `PeerMsg`, or `undefined`.
+Accepts a JSON string (DataChannel) or an object (relay). **Returns** a validated `PeerMsg`, or `undefined`.
 
 ```ts
 channel.onmessage = (ev) => { const m = parsePeerMsg(ev.data); if (m?.t === 'input') use(m.frame); };
@@ -411,12 +544,17 @@ channel.onmessage = (ev) => { const m = parsePeerMsg(ev.data); if (m?.t === 'inp
 
 ```ts
 class BoundedQueue<T> {
-  constructor(max?: number); // default 64
+  constructor(max?: number);   // default 64
   readonly max: number;
   readonly size: number;
-  push(x: T): boolean;       // false when full
+  push(x: T): boolean;         // false when full
   drain(): T[];
 }
+```
+
+```ts
+const q = new BoundedQueue<PeerMsg>(16);
+if (!q.push(msg)) console.warn('queue full');
 ```
 
 ### Emitter
@@ -430,15 +568,19 @@ class Emitter {
 }
 ```
 
-| Constant | Value |
-|---|---|
-| `RELAY_CHUNK_BYTES` | `28 * 1024` |
-| `REASSEMBLY_TIMEOUT_MS` | `10_000` |
-| `MAX_DRAW_BYTES` | `200 * 1024` |
+### Size constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `RELAY_CHUNK_BYTES` | `28 * 1024` | Largest serialized relay payload |
+| `MAX_CHUNKS` | `64` | Most chunks per message |
+| `MAX_OPEN_PER_SENDER` | `4` | Partial messages kept per sender |
+| `REASSEMBLY_TIMEOUT_MS` | `10_000` | Partials expire after this |
+| `MAX_DRAW_BYTES` | `200 * 1024` | Larger drawings are dropped before send |
 
 ## Types and schemas
 
-### InputFrame and InputFrameSchema
+### InputFrame
 
 ```ts
 interface InputFrame {
@@ -454,7 +596,7 @@ interface InputFrame {
 const InputFrameSchema: z.ZodType<InputFrame>;
 ```
 
-### ControlWidget and ControlWidgetSchema
+### ControlWidget
 
 ```ts
 type ControlWidget =
@@ -469,20 +611,21 @@ type ControlWidget =
 const ControlWidgetSchema: z.ZodType<ControlWidget>;
 ```
 
-The schema enforces ids of 1 to 32 characters, labels up to 20, prompts up to 80, 2 to 6 vote options of up to 40 characters, and placeholders up to 60. Validate widget lists from untrusted sources (for example, generated by an LLM) before sending them:
+The schema allows ids of 1 to 32 characters, labels up to 20, prompts up to 80, 2 to 6 vote options of up to 40 characters, and placeholders up to 60. Validate widget lists from untrusted sources before sending them:
 
 ```ts
 const widgets = z.array(ControlWidgetSchema).parse(untrusted);
 ```
 
-### PeerMsg and PeerMsgSchema
+### PeerMsg
 
 ```ts
 type PeerMsg =
   | { t: 'input'; frame: InputFrame }
-  | { t: 'screen'; name: string; data?: unknown }  // name: 1 to 32 chars, app-defined
+  | { t: 'screen'; name: string; data?: unknown }  // name: 1 to 32 chars
   | { t: 'ping'; id: number }
   | { t: 'pong'; id: number };
+const PeerMsgSchema; // zod discriminated union on `t`
 ```
 
 ### ROOM_CODE_RE
@@ -494,8 +637,10 @@ ROOM_CODE_RE.test('KMPV'); // true
 
 ### Wire types
 
-`PlayerInfo`, `BackendErrorCode`, `ClientToBackend` and `BackendToClient` describe the signaling protocol. See [Protocol messages](./protocol).
-
 ```ts
 interface PlayerInfo { id: string; name: string; avatar?: string }
+type BackendErrorCode = 'room.notFound' | 'room.full' | 'room.badRequest' | 'room.notInRoom'
+  | 'room.targetGone' | 'room.badToken' | 'room.rateLimited' | (string & {});
 ```
+
+`ClientToBackend` and `BackendToClient` are listed message by message in [Protocol messages](./protocol).

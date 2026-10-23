@@ -74,7 +74,7 @@ onBeforeUnmount(() => { io?.disconnect(); if (onScroll) window.removeEventListen
       <ul class="cp-facts">
         <li><strong>1</strong> runtime dependency (zod)</li>
         <li><strong>8</strong> widget kinds</li>
-        <li><strong>34</strong> tests, no browser needed</li>
+        <li><strong>39</strong> tests, no browser needed</li>
         <li><strong>13–16 ms</strong> phone to Fire TV in Cadabra</li>
       </ul>
     </div>

@@ -29,6 +29,8 @@ There are 39 tests in four files.
 
 **`test/widgets.test.ts`** (jsdom): joystick axes and ARIA, hold edges, tilt fallback and recalibration, draw export size limits, text and vote, unmount and blur releasing held input, swipe ignoring `pointercancel`.
 
+**`test/regressions.test.ts`**: one test per 0.1.1 fix: a second `connect()` closes the previous socket, malformed server messages never throw, `create()` and `close()` settle cleanly, reassembly memory is bounded and stale partials are dropped on reconnect, and oversized reliable sends return `false`.
+
 **`test/example-server.test.ts`**: a create, join, input and screen round trip over the relay against the real example server.
 
 ## Fakes you can reuse
