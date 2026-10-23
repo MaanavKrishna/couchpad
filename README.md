@@ -73,7 +73,7 @@ Serve the phone page over HTTPS so tilt, vibration and wake-lock work.
 - **Built for flaky phones.** Reconnect with jittered backoff (**250 ms to 8 s**, ±30%). A rejoin token gives a refreshed phone its seat back, and a restarted TV app resumes its room. While a link is down, reliable messages wait in a queue (max **64**). A **2 s** ping tracks RTT, and a **2 s** grace period covers ICE blips.
 - **Nothing sticks "pressed".** A held control is resent every **100 ms**, a button release is sent twice (**30 ms** apart), and a zeroing frame goes out on blur or hide.
 - **Framework-free widgets.** `mountController()` turns a declarative widget list into touch controls with pointer capture, haptics and CSS-variable theming. It has 8 widget kinds.
-- **Tiny and testable.** One runtime dependency (`zod`). WebSocket, RTCPeerConnection, clock and storage are all injectable, so **34 tests** run in Node without a browser.
+- **Tiny and testable.** One runtime dependency (`zod`). WebSocket, RTCPeerConnection, clock and storage are all injectable, so **39 tests** run in Node without a browser.
 - **Proven on a TV.** In Cadabra it carries input from up to 4 phones to a Fire TV Stick HD, measured at **13 to 16 ms** on a home network.
 
 ## Used by Cadabra
@@ -159,7 +159,7 @@ Additional server messages (for example game-specific events) are ignored by cou
 
 ```bash
 npm install
-npm test          # 34 tests: transport state machine, reconnects, chunking, widgets (jsdom), example server round trip
+npm test          # 39 tests: transport state machine, reconnects, chunking, widgets (jsdom), example server round trip
 npm run typecheck
 ```
 

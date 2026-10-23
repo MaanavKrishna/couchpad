@@ -18,5 +18,5 @@ First release, extracted from the Fire TV party game [Cadabra](https://github.co
 - `mountController` with 8 widget kinds: joystick, button, hold, tilt, swipe, draw, vote and text.
 - Zod schemas for every wire message.
 - Reference example server, host page and phone page.
-- 34 tests running in Node with injectable fakes.
+- 39 tests running in Node with injectable fakes.
 - CI for typecheck and tests.
