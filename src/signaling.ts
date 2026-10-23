@@ -93,7 +93,9 @@ export class Signaling {
       if (this.ws !== ws) return;
       let m: BackendToClient;
       try { m = JSON.parse(String(ev.data)); } catch { return; }
-      if (m && typeof m === 'object' && typeof (m as any).t === 'string') this.o.onMessage(m);
+      if (!m || typeof m !== 'object' || typeof (m as any).t !== 'string') return;
+      // A malformed server message must never throw out of the socket handler.
+      try { this.o.onMessage(m); } catch { /* ignore */ }
     };
     ws.onerror = () => { /* onclose follows */ };
     ws.onclose = () => {

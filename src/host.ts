@@ -176,11 +176,14 @@ export class CouchHost {
         return this.settle();
       case 'room.resumed':
         this.live = true;
-        this.reconcile(m.players ?? []);
+        this.reconcile(Array.isArray(m.players)
+          ? m.players.filter((x) => !!x && typeof x === 'object' && typeof x.id === 'string')
+          : []);
         this.flushQueue();
         this.ev.emit('resumed', this.code);
         return this.settle();
       case 'player.joined': {
+        if (!m.player || typeof m.player !== 'object' || typeof m.player.id !== 'string') return;
         const { id, name, avatar } = m.player;
         const prev = this.ps.get(id);
         prev?.peer?.close(); // a rejoining phone always re-offers
