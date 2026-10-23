@@ -1,6 +1,8 @@
 // Regression tests for bugs found in review.
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { CouchClient, CouchHost, Signaling, defaultClock } from '../src/index';
+import {
+  CouchClient, CouchHost, MAX_OPEN_PER_SENDER, RELAY_CHUNK_BYTES, Reassembler, Signaling, defaultClock,
+} from '../src/index';
 import { FakeBackend, FakeRTC, MemStorage, resetFakes } from './fakes';
 
 let backend: FakeBackend;
@@ -96,5 +98,30 @@ describe('regressions', () => {
     await tick(0);
     await expect(r).rejects.toThrow('room.notFound');
     expect(vi.getTimerCount()).toBe(0); // no ping interval left running
+  });
+
+  test('reassembler: memory is bounded per sender and a reconnect drops stale partials', () => {
+    const r = new Reassembler(defaultClock);
+    const c = (id: number, seq: number, part: string, total = 2) => ({ t: '~chunk', id, seq, total, part });
+    // an oversized part is not treated as a chunk (it passes through and fails PeerMsg validation)
+    const big = c(1, 0, 'x'.repeat(RELAY_CHUNK_BYTES + 1));
+    expect(r.accept('a', big)).toBe(big);
+    expect(vi.getTimerCount()).toBe(0); // no partial buffered
+    expect(r.accept('a', c(1, 1, '1}'))).toBeUndefined();
+    expect(vi.getTimerCount()).toBe(1);
+    r.clear();
+    expect(vi.getTimerCount()).toBe(0);
+    // at most MAX_OPEN_PER_SENDER partials per sender; the oldest are evicted
+    for (let id = 1; id <= MAX_OPEN_PER_SENDER + 3; id++) r.accept('a', c(id, 0, '{"v":'));
+    expect(vi.getTimerCount()).toBe(MAX_OPEN_PER_SENDER);
+    expect(r.accept('a', c(1, 1, '1}'))).toBeUndefined(); // evicted
+    expect(r.accept('a', c(MAX_OPEN_PER_SENDER + 3, 1, '7}'))).toEqual({ v: 7 });
+    r.clear();
+    // a reconnected sender restarts its ids: old parts must not mix into the new message
+    r.accept('b', c(1, 0, '{"old":'));
+    r.drop('b');
+    expect(vi.getTimerCount()).toBe(0);
+    expect(r.accept('b', c(1, 1, '2}'))).toBeUndefined();
+    expect(r.accept('b', c(1, 0, '{"new":'))).toEqual({ new: 2 });
   });
 });

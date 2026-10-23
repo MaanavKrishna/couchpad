@@ -183,12 +183,14 @@ export class CouchClient implements Transport {
         return;
       }
       case 'tv.left':
+        this.chunks.drop('tv'); // a restarted TV restarts its chunk ids
         this.peer?.close();
         this.peer = undefined;
         this.setMode('relay');
         this.ev.emit('tv.left');
         return;
       case 'tv.back':
+        this.chunks.drop('tv');
         this.ev.emit('tv.back');
         this.startPeer();
         return;

@@ -71,37 +71,60 @@ export function relayPayloads(msg: unknown): unknown[] {
   return parts.map((part, seq) => ({ t: '~chunk', id, seq, total: parts.length, part } satisfies RelayChunk));
 }
 
+/** Most chunks one message may be split into; larger messages are not deliverable over relay. */
+export const MAX_CHUNKS = 64;
+/** Partial messages kept per sender; the oldest is dropped beyond this. */
+export const MAX_OPEN_PER_SENDER = 4;
+
 const isChunk = (d: unknown): d is RelayChunk => {
   const c = d as RelayChunk;
   return !!c && typeof c === 'object' && c.t === '~chunk' && Number.isInteger(c.id) && Number.isInteger(c.seq)
-    && Number.isInteger(c.total) && c.total > 0 && c.total <= 64 && c.seq >= 0 && c.seq < c.total
-    && typeof c.part === 'string';
+    && Number.isInteger(c.total) && c.total > 0 && c.total <= MAX_CHUNKS && c.seq >= 0 && c.seq < c.total
+    && typeof c.part === 'string' && c.part.length <= RELAY_CHUNK_BYTES;
 };
 
-/** Reassembles chunked relay payloads per sender; partials expire after 10 s. */
+interface Partial { parts: (string | undefined)[]; got: number; timer: unknown }
+
+/** Reassembles chunked relay payloads per sender; partials expire after 10 s. Memory is bounded per sender. */
 export class Reassembler {
-  private open = new Map<string, { parts: (string | undefined)[]; got: number; timer: unknown }>();
+  private open = new Map<string, Map<number, Partial>>();
   constructor(private clock: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(h: unknown): void }) {}
 
   /** Returns the complete payload (unchunked data passes through), or undefined while incomplete. */
   accept(from: string, data: unknown): unknown {
     if (!isChunk(data)) return data;
-    const key = `${from}:${data.id}`;
-    let e = this.open.get(key);
+    let mine = this.open.get(from);
+    if (!mine) this.open.set(from, (mine = new Map()));
+    let e = mine.get(data.id);
     if (!e) {
-      e = { parts: new Array(data.total), got: 0, timer: this.clock.setTimeout(() => this.open.delete(key), REASSEMBLY_TIMEOUT_MS) };
-      this.open.set(key, e);
+      if (mine.size >= MAX_OPEN_PER_SENDER) this.remove(from, mine.keys().next().value!);
+      const id = data.id;
+      e = { parts: new Array(data.total), got: 0, timer: this.clock.setTimeout(() => this.remove(from, id), REASSEMBLY_TIMEOUT_MS) };
+      mine.set(id, e);
     }
     if (e.parts.length !== data.total || e.parts[data.seq] !== undefined) return undefined;
     e.parts[data.seq] = data.part;
     if (++e.got < data.total) return undefined;
-    this.clock.clearTimeout(e.timer);
-    this.open.delete(key);
+    this.remove(from, data.id);
     try { return JSON.parse(e.parts.join('')); } catch { return undefined; }
   }
 
+  private remove(from: string, id: number) {
+    const mine = this.open.get(from);
+    const e = mine?.get(id);
+    if (!mine || !e) return;
+    this.clock.clearTimeout(e.timer);
+    mine.delete(id);
+    if (mine.size === 0) this.open.delete(from);
+  }
+
+  /** Forget a sender's partials (it reconnected: its chunk ids restart and old parts would collide). */
+  drop(from: string) {
+    for (const id of [...(this.open.get(from)?.keys() ?? [])]) this.remove(from, id);
+  }
+
   clear() {
-    for (const e of this.open.values()) this.clock.clearTimeout(e.timer);
+    for (const mine of this.open.values()) for (const e of mine.values()) this.clock.clearTimeout(e.timer);
     this.open.clear();
   }
 }

@@ -201,6 +201,7 @@ export class CouchHost {
         const { id, name, avatar } = m.player;
         const prev = this.ps.get(id);
         prev?.peer?.close(); // a rejoining phone always re-offers
+        this.chunks.drop(id); // a reloaded phone restarts its chunk ids
         this.ps.set(id, {
           name, avatar: avatar ?? prev?.avatar ?? '', connected: true, transport: 'relay',
           rttMs: prev?.rttMs ?? 0, pings: new Map(), lastT: -Infinity,
@@ -212,6 +213,7 @@ export class CouchHost {
         if (!p) return;
         p.peer?.close(); p.peer = undefined;
         p.connected = false; p.transport = 'relay';
+        this.chunks.drop(m.playerId);
         return this.ev.emit('left', m.playerId);
       }
       case 'signal':
