@@ -11,7 +11,7 @@ titleTemplate: Phones as game controllers, no app
 <div class="cp-wrap">
 <h2 id="cp-session-h" class="cp-h2 cp-reveal">Watch a session survive the network</h2>
 <p class="cp-sub-lede cp-reveal">Scroll through four networks and watch what couchpad sends. Every line in the log is a real couchpad message.</p>
-<HomeSession />
+<LazyMount min-height="900px"><HomeSession /></LazyMount>
 </div>
 </section>
 
@@ -22,7 +22,7 @@ titleTemplate: Phones as game controllers, no app
 <h2 id="cp-play-h" class="cp-h2 cp-reveal">Try the input path</h2>
 <p class="cp-sub-lede cp-reveal">This joystick runs the same rules as <code>CouchClient.sendInput()</code>: moves are coalesced to 30 Hz, a button edge goes out at once, and a held control is resent every 100 ms.</p>
 <div class="cp-reveal">
-<HomePlayground />
+<LazyMount min-height="420px"><HomePlayground /></LazyMount>
 </div>
 </div>
 </section>

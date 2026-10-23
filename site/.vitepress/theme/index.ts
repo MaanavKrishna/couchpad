@@ -7,6 +7,7 @@ import HomeCadabra from './HomeCadabra.vue';
 import HomePlayground from './HomePlayground.vue';
 import HomeSession from './HomeSession.vue';
 import ConceptFig from './ConceptFig.vue';
+import LazyMount from './LazyMount.vue';
 import WidgetGallery from './WidgetGallery.vue';
 import './custom.css';
 
@@ -31,6 +32,7 @@ export default {
     app.component('HomePlayground', HomePlayground);
     app.component('HomeSession', HomeSession);
     app.component('ConceptFig', ConceptFig);
+    app.component('LazyMount', LazyMount);
     app.component('WidgetGallery', WidgetGallery);
   },
 } satisfies Theme;
