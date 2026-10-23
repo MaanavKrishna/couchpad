@@ -6,7 +6,7 @@
   --cp-line: #2b3060;
   --cp-text: #e9eaf6;
   --cp-muted: #a3a8cf;
-  --cp-dim: #7c82b3;
+  --cp-dim: #8b91c2;
   --cp-cyan: #4cc9f0;
   --cp-amber: #ffd166;
   --cp-rose: #ff4d6d;
@@ -257,3 +257,8 @@ body { background: var(--cp-ink); }
 @keyframes cp-caret { 50% { opacity: 0; } }
 .cp-log li { animation: cp-logline .3s ease-out both; }
 @keyframes cp-logline { from { opacity: 0; transform: translateY(6px); } }
+
+/* sweep fixes */
+.vp-doc :is(h1, h2, h3, h4)[id] { scroll-margin-top: calc(var(--vp-nav-height, 64px) + 24px); }
+.vp-code-group .tabs input:focus-visible + label { outline: 2px solid var(--cp-amber); outline-offset: -2px; border-radius: 6px; }
+.pg-pad, .pg-jump { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
