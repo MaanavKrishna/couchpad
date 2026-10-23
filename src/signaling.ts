@@ -73,6 +73,12 @@ export class Signaling {
 
   connect() {
     this.stopped = false;
+    // A manual connect supersedes a pending retry and any live socket (no orphaned second link).
+    if (this.retry !== undefined) { this.o.clock.clearTimeout(this.retry); this.retry = undefined; }
+    const prev = this.ws;
+    this.ws = undefined;
+    this.openedAt = 0;
+    try { prev?.close(); } catch { /* ignore */ }
     const Ctor = this.o.WebSocket ?? ((globalThis as any).WebSocket as WebSocketCtor);
     const ws = new Ctor(this.o.url);
     this.ws = ws;
